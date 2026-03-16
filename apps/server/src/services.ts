@@ -28,6 +28,7 @@ import {
   WorkspaceService,
   ContainerSandboxClient,
   PreviewService,
+  BillingService,
 } from "@jjhub/sdk";
 
 // ---------------------------------------------------------------------------
@@ -54,6 +55,7 @@ export interface Services {
   sse: SSEManager;
   workspace: WorkspaceService;
   preview: PreviewService;
+  billing: BillingService;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,6 +110,9 @@ export function initServices(): void {
     preview: new PreviewService(db, sandbox, {
       previewDomain: process.env.JJHUB_PREVIEW_DOMAIN ?? "",
       hostAddress: process.env.JJHUB_PREVIEW_HOST ?? "localhost",
+    }),
+    billing: new BillingService(db, {
+      billingEnabled: process.env.JJHUB_BILLING_ENABLED === "true",
     }),
   };
 

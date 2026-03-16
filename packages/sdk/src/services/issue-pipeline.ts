@@ -18,30 +18,19 @@
 
 import type { Sql } from "postgres";
 import {
-  type APIError,
   badRequest,
   conflict,
-  internal,
   notFound,
 } from "../lib/errors";
 
 import {
-  getIssueByNumber as dbGetIssueByNumber,
   getIssueByID as dbGetIssueByID,
   createIssueComment as dbCreateIssueComment,
   incrementIssueCommentCount as dbIncrementIssueCommentCount,
-  type GetIssueByNumberRow,
-  type GetIssueByIDRow,
 } from "../db/issues_sql";
 
 import {
-  listLabelsForIssue as dbListLabelsForIssue,
-  countLabelsForIssue as dbCountLabelsForIssue,
-} from "../db/labels_sql";
-
-import {
   getRepoByID as dbGetRepoByID,
-  getRepoByOwnerAndLowerName as dbGetRepoByOwnerAndLowerName,
 } from "../db/repos_sql";
 
 import {
@@ -56,7 +45,6 @@ import {
   createWorkflowRun as dbCreateWorkflowRun,
   createWorkflowStep as dbCreateWorkflowStep,
   createWorkflowTask as dbCreateWorkflowTask,
-  getWorkflowRun as dbGetWorkflowRun,
   cancelWorkflowRun as dbCancelWorkflowRun,
   cancelWorkflowTasks as dbCancelWorkflowTasks,
   ensureWorkflowDefinitionReference as dbEnsureWorkflowDefinitionReference,
@@ -406,9 +394,9 @@ export class IssuePipelineService {
 
     // Initialize pipeline record
     const now = new Date();
-    const steps: PipelineStepState[] = PIPELINE_STEPS.map((step, idx) => ({
+    const steps: PipelineStepState[] = PIPELINE_STEPS.map((step) => ({
       step,
-      status: idx === 0 ? "pending" : "pending",
+      status: "pending" as PipelineStepStatus,
       workflowRunId: null,
       artifactNames: [],
       startedAt: null,
@@ -455,7 +443,7 @@ export class IssuePipelineService {
     repositoryId?: string,
   ): Promise<PipelineStatus | null> {
     // Search by issueId, optionally filtered by repositoryId
-    for (const [key, record] of this.pipelines) {
+    for (const [, record] of this.pipelines) {
       if (record.issueId === issueId) {
         if (repositoryId && record.repositoryId !== repositoryId) continue;
         return this.toPipelineStatus(record);
@@ -758,9 +746,10 @@ export class IssuePipelineService {
       workflowStepId: workflowStep.id,
       repositoryId: record.repositoryId,
       status: "pending",
-      priority: "0",
+      priority: 0,
       payload: taskPayload,
       availableAt: new Date(),
+      freestyleVmId: null,
     });
   }
 

@@ -14,6 +14,10 @@ export interface ListProps {
   onHighlight?: (item: ListItem, index: number) => void;
   maxVisible?: number;
   active?: boolean;
+  /** Message to show when list is empty. Defaults to "No items". */
+  emptyMessage?: string;
+  /** Hint to show below empty message, e.g. "Press 'c' to create one." */
+  emptyHint?: string;
 }
 
 export function List({
@@ -22,6 +26,8 @@ export function List({
   onHighlight,
   maxVisible = 20,
   active = true,
+  emptyMessage = "No items",
+  emptyHint,
 }: ListProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [scrollOffset, setScrollOffset] = useState(0);
@@ -91,8 +97,13 @@ export function List({
 
   if (items.length === 0) {
     return (
-      <InkBox>
-        <InkText dimColor>No items</InkText>
+      <InkBox flexDirection="column" paddingY={1}>
+        <InkText dimColor>{emptyMessage}</InkText>
+        {emptyHint && (
+          <InkBox marginTop={1}>
+            <InkText dimColor>{emptyHint}</InkText>
+          </InkBox>
+        )}
       </InkBox>
     );
   }

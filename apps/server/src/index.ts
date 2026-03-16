@@ -38,6 +38,7 @@ import lfs from "./routes/lfs";
 import integrations from "./routes/integrations";
 import daemon from "./routes/daemon";
 import previews from "./routes/previews";
+import billing from "./routes/billing";
 
 // ---------------------------------------------------------------------------
 // Initialize database connection and service registry
@@ -109,6 +110,7 @@ app.route("/", lfs);
 app.route("/", integrations);
 app.route("/", daemon);
 app.route("/", previews);
+app.route("/", billing);
 
 const port = parseInt(process.env.JJHUB_PORT ?? "3000");
 

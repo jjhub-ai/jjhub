@@ -202,6 +202,26 @@ export type {
   AutoPushEvent,
 } from "./services/auto-push";
 
+// Billing & metering
+export {
+  BillingService,
+  createBillingService,
+  createQuotaEnforcer,
+  MetricKeys,
+  CreditCategories,
+} from "./services/billing";
+export type {
+  MetricKey,
+  CreditCategory,
+  OwnerType as BillingOwnerType,
+  BillingAccountResponse,
+  CreditBalanceResponse,
+  CreditLedgerEntryResponse,
+  UsageResponse,
+  QuotaCheckResult,
+  GrantResult,
+} from "./services/billing";
+
 // Issue Pipeline (automated Research → Plan → Implement → Review → Land)
 export {
   IssuePipelineService,

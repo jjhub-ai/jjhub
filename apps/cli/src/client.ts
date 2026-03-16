@@ -191,9 +191,9 @@ function parseRepoFromUrl(
   // SCP-style: git@ssh.jjhub.tech:OWNER/REPO
   const scpMatch = clean.match(/^[^@]+@([^:]+):(.+)$/);
   if (scpMatch) {
-    const h = scpMatch[1].toLowerCase();
+    const h = scpMatch[1]!.toLowerCase();
     if (acceptedHosts.has(h)) {
-      const parts = scpMatch[2].split("/");
+      const parts = scpMatch[2]!.split("/");
       if (parts.length === 2 && parts[0] && parts[1]) {
         return { owner: parts[0], repo: parts[1] };
       }
@@ -203,9 +203,9 @@ function parseRepoFromUrl(
   // JJ sometimes normalizes SCP-style remotes into "https://ssh.host:OWNER/REPO".
   const pseudoUrlMatch = clean.match(/^[a-z]+:\/\/([^:]+):([^/]+)\/([^/]+)$/i);
   if (pseudoUrlMatch) {
-    const h = pseudoUrlMatch[1].toLowerCase();
+    const h = pseudoUrlMatch[1]!.toLowerCase();
     if (acceptedHosts.has(h)) {
-      return { owner: pseudoUrlMatch[2], repo: pseudoUrlMatch[3] };
+      return { owner: pseudoUrlMatch[2]!, repo: pseudoUrlMatch[3]! };
     }
   }
 
@@ -251,7 +251,7 @@ function detectRepoFromRemotes(): { owner: string; repo: string } | null {
       const parts = line.trim().split(/\s+/);
       if (parts.length < 2) continue;
       const [name, url] = parts;
-      const parsed = parseRepoFromUrl(url, host);
+      const parsed = parseRepoFromUrl(url!, host);
       if (parsed) {
         if (name === "origin") return parsed;
         fallback ??= parsed;

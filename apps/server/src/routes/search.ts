@@ -6,6 +6,7 @@ import {
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -49,39 +50,10 @@ function cursorToPage(cursor: string, limit: number): number {
   return Math.floor(offset / limit) + 1;
 }
 
-// ---------------------------------------------------------------------------
-// Service stub
-// ---------------------------------------------------------------------------
-
-const service = {
-  searchRepositories: async (
-    _viewer: any,
-    _input: any,
-  ): Promise<{ items: any[]; total_count: number }> => ({
-    items: [],
-    total_count: 0,
-  }),
-  searchIssues: async (
-    _viewer: any,
-    _input: any,
-  ): Promise<{ items: any[]; total_count: number }> => ({
-    items: [],
-    total_count: 0,
-  }),
-  searchUsers: async (
-    _input: any,
-  ): Promise<{ items: any[]; total_count: number }> => ({
-    items: [],
-    total_count: 0,
-  }),
-  searchCode: async (
-    _viewer: any,
-    _input: any,
-  ): Promise<{ items: any[]; total_count: number }> => ({
-    items: [],
-    total_count: 0,
-  }),
-};
+/** Lazily resolve the search service from the registry on each request. */
+function service() {
+  return getServices().search;
+}
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -102,7 +74,7 @@ app.get("/api/search/repositories", async (c) => {
   const page = cursorToPage(pag.cursor, pag.limit);
 
   try {
-    const result = await service.searchRepositories(viewer, {
+    const result = await service().searchRepositories(viewer, {
       query: query.get("q") ?? "",
       page,
       perPage: pag.limit,
@@ -127,7 +99,7 @@ app.get("/api/search/issues", async (c) => {
   const page = cursorToPage(pag.cursor, pag.limit);
 
   try {
-    const result = await service.searchIssues(viewer, {
+    const result = await service().searchIssues(viewer, {
       query: query.get("q") ?? "",
       state: (query.get("state") ?? "").trim(),
       label: (query.get("label") ?? "").trim(),
@@ -155,7 +127,7 @@ app.get("/api/search/users", async (c) => {
   const page = cursorToPage(pag.cursor, pag.limit);
 
   try {
-    const result = await service.searchUsers({
+    const result = await service().searchUsers({
       query: query.get("q") ?? "",
       page,
       perPage: pag.limit,
@@ -180,7 +152,7 @@ app.get("/api/search/code", async (c) => {
   const page = cursorToPage(pag.cursor, pag.limit);
 
   try {
-    const result = await service.searchCode(viewer, {
+    const result = await service().searchCode(viewer, {
       query: query.get("q") ?? "",
       page,
       perPage: pag.limit,

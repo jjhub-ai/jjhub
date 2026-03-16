@@ -7,6 +7,7 @@ import {
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -32,46 +33,10 @@ interface RevokeRequest {
   token: string;
 }
 
-// ---------------------------------------------------------------------------
-// Service stub
-// ---------------------------------------------------------------------------
-
-const service = {
-  createApplication: async (
-    _ownerId: number,
-    _req: any,
-  ): Promise<any> => ({}),
-  listApplications: async (_ownerId: number): Promise<any[]> => [],
-  getApplication: async (
-    _appId: number,
-    _ownerId: number,
-  ): Promise<any> => ({}),
-  deleteApplication: async (
-    _appId: number,
-    _ownerId: number,
-  ): Promise<void> => {},
-  authorize: async (
-    _userId: number,
-    _clientId: string,
-    _redirectUri: string,
-    _scope: string,
-    _codeChallenge: string,
-    _codeChallengeMethod: string,
-  ): Promise<{ code: string }> => ({ code: "" }),
-  exchangeCode: async (
-    _clientId: string,
-    _clientSecret: string,
-    _code: string,
-    _redirectUri: string,
-    _codeVerifier: string,
-  ): Promise<any> => ({}),
-  refreshToken: async (
-    _clientId: string,
-    _clientSecret: string,
-    _refreshToken: string,
-  ): Promise<any> => ({}),
-  revokeToken: async (_token: string): Promise<void> => {},
-};
+/** Lazily resolve the OAuth2 service from the registry on each request. */
+function service() {
+  return getServices().oauth2;
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -115,7 +80,7 @@ app.post("/api/oauth2/applications", async (c) => {
   }
 
   try {
-    const result = await service.createApplication(user.id, body);
+    const result = await service().createApplication(user.id, body);
     return writeJSON(c, 201, result);
   } catch (err) {
     return writeRouteError(c, err);
@@ -130,7 +95,7 @@ app.get("/api/oauth2/applications", async (c) => {
   }
 
   try {
-    const apps = await service.listApplications(user.id);
+    const apps = await service().listApplications(user.id);
     return writeJSON(c, 200, apps);
   } catch (err) {
     return writeRouteError(c, err);
@@ -151,7 +116,7 @@ app.get("/api/oauth2/applications/:id", async (c) => {
   }
 
   try {
-    const application = await service.getApplication(appId, user.id);
+    const application = await service().getApplication(appId, user.id);
     return writeJSON(c, 200, application);
   } catch (err) {
     return writeRouteError(c, err);
@@ -172,7 +137,7 @@ app.delete("/api/oauth2/applications/:id", async (c) => {
   }
 
   try {
-    await service.deleteApplication(appId, user.id);
+    await service().deleteApplication(appId, user.id);
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
@@ -206,7 +171,7 @@ app.get("/api/oauth2/authorize", async (c) => {
   }
 
   try {
-    const result = await service.authorize(
+    const result = await service().authorize(
       user.id,
       clientId,
       redirectUri,
@@ -270,7 +235,7 @@ app.post("/api/oauth2/token", async (c) => {
           return writeError(c, badRequest("client_id is required"));
         }
 
-        const result = await service.exchangeCode(
+        const result = await service().exchangeCode(
           req.client_id!,
           req.client_secret ?? "",
           req.code!,
@@ -288,7 +253,7 @@ app.post("/api/oauth2/token", async (c) => {
           return writeError(c, badRequest("client_id is required"));
         }
 
-        const result = await service.refreshToken(
+        const result = await service().refreshToken(
           req.client_id!,
           req.client_secret ?? "",
           req.refresh_token!,
@@ -331,7 +296,7 @@ app.post("/api/oauth2/revoke", async (c) => {
   }
 
   try {
-    await service.revokeToken(req.token);
+    await service().revokeToken(req.token);
     return c.body(null, 200);
   } catch (err) {
     return writeRouteError(c, err);

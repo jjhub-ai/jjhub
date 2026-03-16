@@ -4,9 +4,12 @@ import {
   badRequest,
   unauthorized,
   internal,
+  getUser,
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { Result } from "better-result";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Types — match Go's db/services types exactly
@@ -234,36 +237,18 @@ interface OrgRouteService {
   ): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// Stub service — returns internal errors for all operations (TODO: wire DB)
-// ---------------------------------------------------------------------------
+/**
+ * Unwrap a Result value, throwing the error if it is an error.
+ * This adapts the Result-returning OrgService to the throw-based route pattern.
+ */
+function unwrap<T>(result: { isOk(): boolean; value: T; error: any }): T {
+  if (!result.isOk()) throw result.error;
+  return result.value;
+}
 
-const stubService: OrgRouteService = {
-  async getOrg() { throw internal("org service not implemented"); },
-  async createOrg() { throw internal("org service not implemented"); },
-  async updateOrg() { throw internal("org service not implemented"); },
-  async addOrgMember() { throw internal("org service not implemented"); },
-  async removeOrgMember() { throw internal("org service not implemented"); },
-  async listOrgRepos() { throw internal("org service not implemented"); },
-  async listOrgMembers() { throw internal("org service not implemented"); },
-  async listOrgTeams() { throw internal("org service not implemented"); },
-  async createTeam() { throw internal("org service not implemented"); },
-  async getTeam() { throw internal("org service not implemented"); },
-  async updateTeam() { throw internal("org service not implemented"); },
-  async deleteTeam() { throw internal("org service not implemented"); },
-  async listTeamMembers() { throw internal("org service not implemented"); },
-  async addTeamMember() { throw internal("org service not implemented"); },
-  async removeTeamMember() { throw internal("org service not implemented"); },
-  async listTeamRepos() { throw internal("org service not implemented"); },
-  async addTeamRepo() { throw internal("org service not implemented"); },
-  async removeTeamRepo() { throw internal("org service not implemented"); },
-};
-
-let service: OrgRouteService = stubService;
-
-/** Replace the org service implementation (used at startup to wire real DB). */
-export function setOrgService(svc: OrgRouteService): void {
-  service = svc;
+/** Lazily resolve the org service from the registry on each request. */
+function orgService() {
+  return getServices().org;
 }
 
 // ---------------------------------------------------------------------------
@@ -271,9 +256,10 @@ export function setOrgService(svc: OrgRouteService): void {
 // ---------------------------------------------------------------------------
 
 /** Extract the authenticated user from context. Returns null if unauthenticated. */
-function userFromContext(_c: Context): User | null {
-  // TODO: wire middleware auth context
-  return null;
+function userFromContext(c: Context): User | null {
+  const user = getUser(c);
+  if (!user) return null;
+  return { id: user.id, username: user.username };
 }
 
 /** Require an authenticated user or throw 401. Matches Go requireRouteUser. */
@@ -425,7 +411,7 @@ app.get("/api/orgs/:org", async (c) => {
   try {
     const orgName = routeParam(c, "org", "organization name is required");
 
-    const org = await service.getOrg(userFromContext(c), orgName);
+    const org = unwrap(await orgService().getOrg(userFromContext(c), orgName));
     return writeJSON(c, 200, org);
   } catch (err) {
     return writeRouteError(c, err);
@@ -443,11 +429,11 @@ app.post("/api/orgs", async (c) => {
       visibility?: string;
     }>();
 
-    const org = await service.createOrg(user, {
+    const org = unwrap(await orgService().createOrg(user, {
       name: body.name ?? "",
       description: body.description ?? "",
       visibility: body.visibility ?? "",
-    });
+    }));
 
     return writeJSON(c, 201, org);
   } catch (err) {
@@ -469,13 +455,13 @@ app.patch("/api/orgs/:org", async (c) => {
       location?: string;
     }>();
 
-    const org = await service.updateOrg(user, orgName, {
+    const org = unwrap(await orgService().updateOrg(user, orgName, {
       name: body.name ?? "",
       description: body.description ?? "",
       visibility: body.visibility ?? "",
       website: body.website ?? "",
       location: body.location ?? "",
-    });
+    }));
 
     return writeJSON(c, 200, org);
   } catch (err) {
@@ -489,12 +475,12 @@ app.get("/api/orgs/:org/repos", async (c) => {
     const orgName = routeParam(c, "org", "organization name is required");
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service.listOrgRepos(
+    const { items, total } = unwrap(await orgService().listOrgRepos(
       userFromContext(c),
       orgName,
       page,
       perPage,
-    );
+    ));
 
     setPaginationHeaders(c, page, perPage, items.length, total);
     return writeJSON(c, 200, items);
@@ -510,12 +496,12 @@ app.get("/api/orgs/:org/members", async (c) => {
     const orgName = routeParam(c, "org", "organization name is required");
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service.listOrgMembers(
+    const { items, total } = unwrap(await orgService().listOrgMembers(
       user,
       orgName,
       page,
       perPage,
-    );
+    ));
 
     setPaginationHeaders(c, page, perPage, items.length, total);
     return writeJSON(c, 200, mapOrgMembersResponse(items));
@@ -535,12 +521,12 @@ app.post("/api/orgs/:org/members", async (c) => {
       role?: string;
     }>();
 
-    await service.addOrgMember(
+    unwrap(await orgService().addOrgMember(
       user,
       orgName,
       body.user_id ?? 0,
       body.role ?? "",
-    );
+    ));
 
     return c.body(null, 201);
   } catch (err) {
@@ -555,7 +541,7 @@ app.delete("/api/orgs/:org/members/:username", async (c) => {
     const orgName = routeParam(c, "org", "organization name is required");
     const username = routeParam(c, "username", "username is required");
 
-    await service.removeOrgMember(user, orgName, username);
+    unwrap(await orgService().removeOrgMember(user, orgName, username));
 
     return c.body(null, 204);
   } catch (err) {
@@ -570,12 +556,12 @@ app.get("/api/orgs/:org/teams", async (c) => {
     const orgName = routeParam(c, "org", "organization name is required");
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service.listOrgTeams(
+    const { items, total } = unwrap(await orgService().listOrgTeams(
       user,
       orgName,
       page,
       perPage,
-    );
+    ));
 
     setPaginationHeaders(c, page, perPage, items.length, total);
     return writeJSON(c, 200, items);
@@ -596,11 +582,11 @@ app.post("/api/orgs/:org/teams", async (c) => {
       permission?: string;
     }>();
 
-    const team = await service.createTeam(user, orgName, {
+    const team = unwrap(await orgService().createTeam(user, orgName, {
       name: body.name ?? "",
       description: body.description ?? "",
       permission: body.permission ?? "",
-    });
+    }));
 
     return writeJSON(c, 201, team);
   } catch (err) {
@@ -615,7 +601,7 @@ app.get("/api/orgs/:org/teams/:team", async (c) => {
     const orgName = routeParam(c, "org", "organization name is required");
     const teamName = routeParam(c, "team", "team name is required");
 
-    const team = await service.getTeam(user, orgName, teamName);
+    const team = unwrap(await orgService().getTeam(user, orgName, teamName));
     return writeJSON(c, 200, team);
   } catch (err) {
     return writeRouteError(c, err);
@@ -635,11 +621,11 @@ app.patch("/api/orgs/:org/teams/:team", async (c) => {
       permission?: string;
     }>();
 
-    const team = await service.updateTeam(user, orgName, teamName, {
+    const team = unwrap(await orgService().updateTeam(user, orgName, teamName, {
       name: body.name ?? "",
       description: body.description ?? "",
       permission: body.permission ?? "",
-    });
+    }));
 
     return writeJSON(c, 200, team);
   } catch (err) {
@@ -654,7 +640,7 @@ app.delete("/api/orgs/:org/teams/:team", async (c) => {
     const orgName = routeParam(c, "org", "organization name is required");
     const teamName = routeParam(c, "team", "team name is required");
 
-    await service.deleteTeam(user, orgName, teamName);
+    unwrap(await orgService().deleteTeam(user, orgName, teamName));
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
@@ -669,13 +655,13 @@ app.get("/api/orgs/:org/teams/:team/members", async (c) => {
     const teamName = routeParam(c, "team", "team name is required");
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service.listTeamMembers(
+    const { items, total } = unwrap(await orgService().listTeamMembers(
       user,
       orgName,
       teamName,
       page,
       perPage,
-    );
+    ));
 
     setPaginationHeaders(c, page, perPage, items.length, total);
     return writeJSON(c, 200, mapTeamMembersResponse(items));
@@ -692,7 +678,7 @@ app.put("/api/orgs/:org/teams/:team/members/:username", async (c) => {
     const teamName = routeParam(c, "team", "team name is required");
     const username = routeParam(c, "username", "username is required");
 
-    await service.addTeamMember(user, orgName, teamName, username);
+    unwrap(await orgService().addTeamMember(user, orgName, teamName, username));
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
@@ -707,7 +693,7 @@ app.delete("/api/orgs/:org/teams/:team/members/:username", async (c) => {
     const teamName = routeParam(c, "team", "team name is required");
     const username = routeParam(c, "username", "username is required");
 
-    await service.removeTeamMember(user, orgName, teamName, username);
+    unwrap(await orgService().removeTeamMember(user, orgName, teamName, username));
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
@@ -722,13 +708,13 @@ app.get("/api/orgs/:org/teams/:team/repos", async (c) => {
     const teamName = routeParam(c, "team", "team name is required");
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service.listTeamRepos(
+    const { items, total } = unwrap(await orgService().listTeamRepos(
       user,
       orgName,
       teamName,
       page,
       perPage,
-    );
+    ));
 
     setPaginationHeaders(c, page, perPage, items.length, total);
     return writeJSON(c, 200, items);
@@ -746,7 +732,7 @@ app.put("/api/orgs/:org/teams/:team/repos/:owner/:repo", async (c) => {
     const owner = routeParam(c, "owner", "owner is required");
     const repoName = routeParam(c, "repo", "repository name is required");
 
-    await service.addTeamRepo(user, orgName, teamName, owner, repoName);
+    unwrap(await orgService().addTeamRepo(user, orgName, teamName, owner, repoName));
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
@@ -762,7 +748,7 @@ app.delete("/api/orgs/:org/teams/:team/repos/:owner/:repo", async (c) => {
     const owner = routeParam(c, "owner", "owner is required");
     const repoName = routeParam(c, "repo", "repository name is required");
 
-    await service.removeTeamRepo(user, orgName, teamName, owner, repoName);
+    unwrap(await orgService().removeTeamRepo(user, orgName, teamName, owner, repoName));
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);

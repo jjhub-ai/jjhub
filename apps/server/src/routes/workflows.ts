@@ -1,5 +1,8 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+import { getUser, writeRouteError } from "@jjhub/sdk";
+import { Result } from "better-result";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Stubbed service types (mirrors Go services layer)
@@ -66,53 +69,105 @@ interface WorkflowLogEntry {
 // interface WorkflowArtifact { ... }
 
 // ---------------------------------------------------------------------------
-// Stubbed service calls — to be replaced with real DB/service layer
+// Real service accessor — wraps the SDK WorkflowService
 // ---------------------------------------------------------------------------
 
+/** Lazily resolve the workflow service from the registry on each request. */
+function wfService() {
+  return getServices().workflow;
+}
+
+/**
+ * Resolve repository ID from route params. The WorkflowService takes
+ * repositoryId: string. We resolve it via the repo service.
+ */
+async function resolveRepoId(c: Context): Promise<string> {
+  const owner = (c.req.param("owner") ?? "").trim();
+  const repo = (c.req.param("repo") ?? "").trim();
+  const user = getUser(c);
+  const actor = user
+    ? { id: user.id, username: user.username, isAdmin: user.isAdmin ?? false }
+    : null;
+  const result = await getServices().repo.getRepo(actor, owner, repo);
+  if (Result.isError(result)) {
+    throw result.error;
+  }
+  return String(result.value.id);
+}
+
+/**
+ * Unwrap a Result value, throwing the error if it's an error.
+ */
+function unwrap<T>(result: { isOk(): boolean; value: T; error: any }): T {
+  if (!result.isOk()) throw result.error;
+  return result.value;
+}
+
+/**
+ * Adapter that presents the same interface as the old stub but delegates to the
+ * real WorkflowService. This avoids rewriting every route handler.
+ */
 const workflowService = {
   listWorkflowDefinitions: async (
-    _repositoryID: number,
-    _page: number,
-    _perPage: number
+    repositoryID: number,
+    page: number,
+    perPage: number
   ): Promise<WorkflowDefinition[]> => {
-    return [];
+    const result = unwrap(await wfService().listWorkflowDefinitions(String(repositoryID), page, perPage));
+    return result as unknown as WorkflowDefinition[];
   },
   getWorkflowDefinition: async (
-    _repositoryID: number,
-    _definitionID: number
+    repositoryID: number,
+    definitionID: number
   ): Promise<WorkflowDefinition | null> => {
-    return null;
+    try {
+      const result = unwrap(await wfService().getWorkflowDefinitionById(String(repositoryID), String(definitionID)));
+      return result as unknown as WorkflowDefinition;
+    } catch {
+      return null;
+    }
   },
   listWorkflowRunsByRepo: async (
-    _repositoryID: number,
-    _page: number,
-    _perPage: number
+    repositoryID: number,
+    page: number,
+    perPage: number
   ): Promise<WorkflowRun[]> => {
-    return [];
+    const result = unwrap(await wfService().listWorkflowRunsByRepo(String(repositoryID), page, perPage));
+    return result as unknown as WorkflowRun[];
   },
   listWorkflowRunsByDefinition: async (
-    _repositoryID: number,
-    _definitionID: number,
-    _page: number,
-    _perPage: number
+    repositoryID: number,
+    definitionID: number,
+    page: number,
+    perPage: number
   ): Promise<WorkflowRun[]> => {
-    return [];
+    const result = unwrap(await wfService().listWorkflowRunsByDefinition(String(repositoryID), String(definitionID), page, perPage));
+    return result as unknown as WorkflowRun[];
   },
   getWorkflowRun: async (
-    _repositoryID: number,
-    _runID: number
+    repositoryID: number,
+    runID: number
   ): Promise<WorkflowRun | null> => {
-    return null;
+    try {
+      const result = unwrap(await wfService().getWorkflowRunById(String(repositoryID), String(runID)));
+      return result as unknown as WorkflowRun;
+    } catch {
+      return null;
+    }
   },
   cancelWorkflowRun: async (
-    _repositoryID: number,
-    _runID: number
-  ): Promise<void> => {},
+    repositoryID: number,
+    runID: number
+  ): Promise<void> => {
+    unwrap(await wfService().cancelRun(String(repositoryID), String(runID)));
+  },
   resumeRun: async (
-    _repositoryID: number,
-    _runID: number
-  ): Promise<void> => {},
-  dispatchForEvent: async (_input: {
+    repositoryID: number,
+    runID: number
+  ): Promise<void> => {
+    unwrap(await wfService().resumeRun(String(repositoryID), String(runID)));
+  },
+  dispatchForEvent: async (input: {
     repositoryID: number;
     userID: number;
     workflowDefinitionID?: number;
@@ -122,30 +177,48 @@ const workflowService = {
       inputs?: Record<string, unknown>;
     };
   }): Promise<WorkflowRunResult[]> => {
-    return [];
+    const result = unwrap(await wfService().dispatchForEvent({
+      repositoryId: String(input.repositoryID),
+      userId: String(input.userID),
+      workflowDefinitionId: input.workflowDefinitionID != null ? String(input.workflowDefinitionID) : undefined,
+      event: input.event,
+    }));
+    return result as unknown as WorkflowRunResult[];
   },
-  rerunRun: async (_input: {
+  rerunRun: async (input: {
     repositoryID: number;
     runID: number;
     userID: number;
   }): Promise<WorkflowRunResult | null> => {
-    return null;
+    try {
+      const result = unwrap(await wfService().rerunRun({
+        repositoryId: String(input.repositoryID),
+        runId: String(input.runID),
+        userId: String(input.userID),
+      }));
+      return result as unknown as WorkflowRunResult;
+    } catch {
+      return null;
+    }
   },
-  listWorkflowSteps: async (_runID: number): Promise<WorkflowStep[]> => {
-    return [];
+  listWorkflowSteps: async (runID: number): Promise<WorkflowStep[]> => {
+    const result = unwrap(await wfService().listWorkflowSteps(String(runID)));
+    return result as unknown as WorkflowStep[];
   },
   listWorkflowLogsSince: async (
-    _runID: number,
-    _afterID: number,
-    _limit: number
+    runID: number,
+    afterID: number,
+    limit: number
   ): Promise<WorkflowLogEntry[]> => {
-    return [];
+    const result = unwrap(await wfService().listWorkflowLogsSince(String(runID), afterID, limit));
+    return result as unknown as WorkflowLogEntry[];
   },
   validateDispatchInputs: (
     _config: unknown,
     _userInputs?: Record<string, unknown>
   ): Record<string, unknown> | null => {
-    return null;
+    // TODO: Wire dispatch input validation when available in SDK
+    return _userInputs ?? null;
   },
 };
 
@@ -387,7 +460,7 @@ app.get("/api/repos/:owner/:repo/workflows", async (c) => {
   const pag = parsePagination(c);
   if ("error" in pag) return c.json({ message: pag.error }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   const defs = await workflowService.listWorkflowDefinitions(repositoryID, pag.page, pag.limit);
   return c.json({ workflows: defs }, 200);
 });
@@ -398,7 +471,7 @@ app.get("/api/repos/:owner/:repo/workflows/:id", async (c) => {
   const defID = parsePositiveInt64Param(rawID, "invalid workflow id");
   if (defID === null) return c.json({ message: "invalid workflow id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   const def = await workflowService.getWorkflowDefinition(repositoryID, defID);
   if (!def) return c.json({ message: "workflow definition not found" }, 404);
   return c.json(def, 200);
@@ -410,7 +483,7 @@ app.get("/api/repos/:owner/:repo/workflows/:id/runs", async (c) => {
   const defID = parsePositiveInt64Param(rawID, "invalid workflow id");
   if (defID === null) return c.json({ message: "invalid workflow id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
 
   // Verify the workflow definition exists for this repo.
   const def = await workflowService.getWorkflowDefinition(repositoryID, defID);
@@ -434,8 +507,8 @@ app.post("/api/repos/:owner/:repo/workflows/:id/dispatches", async (c) => {
   const defID = parsePositiveInt64Param(rawID, "invalid workflow id");
   if (defID === null) return c.json({ message: "invalid workflow id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
-  const userID = 0; // TODO: from auth middleware
+  const repositoryID = Number(await resolveRepoId(c));
+  const userID = getUser(c)?.id ?? 0;
 
   let body: { ref?: string; inputs?: Record<string, unknown> };
   try {
@@ -471,8 +544,8 @@ app.post("/api/repos/:owner/:repo/workflows/:name/dispatch", async (c) => {
   const identifier = c.req.param("name")?.trim();
   if (!identifier) return c.json({ message: "invalid workflow identifier" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
-  const userID = 0; // TODO: from auth middleware
+  const repositoryID = Number(await resolveRepoId(c));
+  const userID = getUser(c)?.id ?? 0;
 
   let body: { ref?: string; inputs?: Record<string, unknown> };
   try {
@@ -516,7 +589,7 @@ app.get("/api/repos/:owner/:repo/actions/runs", async (c) => {
   const pag = parsePagination(c);
   if ("error" in pag) return c.json({ message: pag.error }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   const runs = await workflowService.listWorkflowRunsByRepo(repositoryID, pag.page, pag.limit);
   return c.json({ workflow_runs: runs }, 200);
 });
@@ -526,7 +599,7 @@ app.get("/api/repos/:owner/:repo/workflows/runs", async (c) => {
   const pag = parsePagination(c);
   if ("error" in pag) return c.json({ message: pag.error }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   let runs = await workflowService.listWorkflowRunsByRepo(repositoryID, pag.page, pag.limit);
 
   // Apply state filter if provided.
@@ -559,7 +632,7 @@ app.get("/api/repos/:owner/:repo/actions/runs/:id", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   const run = await workflowService.getWorkflowRun(repositoryID, runID);
   if (!run) return c.json({ message: "workflow run not found" }, 404);
   return c.json(run, 200);
@@ -570,7 +643,7 @@ app.get("/api/repos/:owner/:repo/workflows/runs/:id", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   const run = await workflowService.getWorkflowRun(repositoryID, runID);
   if (!run) return c.json({ message: "workflow run not found" }, 404);
 
@@ -600,7 +673,7 @@ app.get("/api/repos/:owner/:repo/workflows/runs/:id/nodes/:nodeId", async (c) =>
   const nodeID = (c.req.param("nodeId") ?? "").trim();
   if (!nodeID) return c.json({ message: "invalid node id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   const run = await workflowService.getWorkflowRun(repositoryID, runID);
   if (!run) return c.json({ message: "workflow run not found" }, 404);
 
@@ -641,7 +714,7 @@ app.get("/api/repos/:owner/:repo/actions/runs/:id/steps", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
 
   // Verify the run exists and belongs to this repository.
   const run = await workflowService.getWorkflowRun(repositoryID, runID);
@@ -668,7 +741,7 @@ app.post("/api/repos/:owner/:repo/actions/runs/:id/cancel", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   await workflowService.cancelWorkflowRun(repositoryID, runID);
   return c.body(null, 204);
 });
@@ -678,7 +751,7 @@ app.post("/api/repos/:owner/:repo/workflows/runs/:id/cancel", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   await workflowService.cancelWorkflowRun(repositoryID, runID);
   return c.body(null, 204);
 });
@@ -688,8 +761,8 @@ app.post("/api/repos/:owner/:repo/actions/runs/:id/rerun", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
-  const userID = 0; // TODO: from auth middleware
+  const repositoryID = Number(await resolveRepoId(c));
+  const userID = getUser(c)?.id ?? 0;
 
   // Optional JSON body (matches Go decodeOptionalJSONBody behavior).
   // Body is currently unused (rerunWorkflowRunRequest is empty struct in Go).
@@ -712,8 +785,8 @@ app.post("/api/repos/:owner/:repo/workflows/runs/:id/rerun", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
-  const userID = 0; // TODO: from auth middleware
+  const repositoryID = Number(await resolveRepoId(c));
+  const userID = getUser(c)?.id ?? 0;
 
   const result = await workflowService.rerunRun({ repositoryID, runID, userID });
   if (!result) return c.json({ message: "workflow run not found" }, 404);
@@ -733,7 +806,7 @@ app.post("/api/repos/:owner/:repo/workflows/runs/:id/resume", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   await workflowService.resumeRun(repositoryID, runID);
   return c.body(null, 204);
 });
@@ -743,7 +816,7 @@ app.get("/api/repos/:owner/:repo/runs/:id/logs", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   const run = await workflowService.getWorkflowRun(repositoryID, runID);
   if (!run) return c.json({ message: "workflow run not found" }, 404);
 
@@ -809,7 +882,7 @@ app.get("/api/repos/:owner/:repo/workflows/runs/:id/events", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
-  const repositoryID = 0; // TODO: from repo context middleware
+  const repositoryID = Number(await resolveRepoId(c));
   const run = await workflowService.getWorkflowRun(repositoryID, runID);
   if (!run) return c.json({ message: "workflow run not found" }, 404);
 

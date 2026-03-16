@@ -541,7 +541,7 @@ function buildSSHInvocationArgs(
   }
 
   return [
-    sshArgs[0],
+    sshArgs[0]!,
     ...(options.forceTTY ? ["-tt"] : []),
     "-o",
     "BatchMode=yes",
@@ -560,18 +560,18 @@ function buildSSHInvocationArgs(
 function buildSSHSpawnSpec(sshArgs: string[]): { args: string[]; command: string } {
   const executable = basename(sshArgs[0] ?? "").toLowerCase();
   if (executable !== "ssh" && executable !== "ssh.exe") {
-    return { command: sshArgs[0], args: sshArgs.slice(1) };
+    return { command: sshArgs[0]!, args: sshArgs.slice(1) };
   }
 
   const scriptCommand = Bun.which("script");
   if (!scriptCommand) {
-    return { command: sshArgs[0], args: sshArgs.slice(1) };
+    return { command: sshArgs[0]!, args: sshArgs.slice(1) };
   }
 
   if (process.platform === "darwin") {
     return {
       command: scriptCommand,
-      args: ["-q", "/dev/null", sshArgs[0], ...sshArgs.slice(1)],
+      args: ["-q", "/dev/null", sshArgs[0]!, ...sshArgs.slice(1)],
     };
   }
 

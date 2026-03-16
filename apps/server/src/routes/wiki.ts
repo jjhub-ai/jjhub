@@ -7,6 +7,7 @@ import {
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,43 +25,10 @@ interface PatchWikiPageRequest {
   body?: string;
 }
 
-// ---------------------------------------------------------------------------
-// Service stub
-// ---------------------------------------------------------------------------
-
-const service = {
-  listWikiPages: async (
-    _viewer: any,
-    _owner: string,
-    _repo: string,
-    _input: any,
-  ): Promise<{ items: any[]; total: number }> => ({ items: [], total: 0 }),
-  getWikiPage: async (
-    _viewer: any,
-    _owner: string,
-    _repo: string,
-    _slug: string,
-  ): Promise<any> => ({}),
-  createWikiPage: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _input: any,
-  ): Promise<any> => ({}),
-  updateWikiPage: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _slug: string,
-    _input: any,
-  ): Promise<any> => ({}),
-  deleteWikiPage: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _slug: string,
-  ): Promise<void> => {},
-};
+/** Lazily resolve the wiki service from the registry on each request. */
+function service() {
+  return getServices().wiki;
+}
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -79,7 +47,7 @@ app.get("/api/repos/:owner/:repo/wiki", async (c) => {
   const q = (query.get("q") ?? "").trim();
 
   try {
-    const { items, total } = await service.listWikiPages(viewer, owner, repo, {
+    const { items, total } = await service().listWikiPages(viewer, owner, repo, {
       query: q,
       page,
       perPage,
@@ -107,7 +75,7 @@ app.post("/api/repos/:owner/:repo/wiki", async (c) => {
   }
 
   try {
-    const created = await service.createWikiPage(actor, owner, repo, {
+    const created = await service().createWikiPage(actor, owner, repo, {
       title: body.title,
       slug: body.slug,
       body: body.body,
@@ -128,7 +96,7 @@ app.get("/api/repos/:owner/:repo/wiki/:slug", async (c) => {
   }
 
   try {
-    const page = await service.getWikiPage(viewer, owner, repo, slug);
+    const page = await service().getWikiPage(viewer, owner, repo, slug);
     return writeJSON(c, 200, page);
   } catch (err) {
     return writeRouteError(c, err);
@@ -155,7 +123,7 @@ app.patch("/api/repos/:owner/:repo/wiki/:slug", async (c) => {
   }
 
   try {
-    const updated = await service.updateWikiPage(actor, owner, repo, slug, {
+    const updated = await service().updateWikiPage(actor, owner, repo, slug, {
       title: body.title,
       slug: body.slug,
       body: body.body,
@@ -179,7 +147,7 @@ app.delete("/api/repos/:owner/:repo/wiki/:slug", async (c) => {
   }
 
   try {
-    await service.deleteWikiPage(actor, owner, repo, slug);
+    await service().deleteWikiPage(actor, owner, repo, slug);
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);

@@ -231,8 +231,8 @@ function parseDiffSummaryLine(line: string): DiffSummaryEntry | null {
     return null;
   }
   return {
-    status: match[1],
-    path: match[2].trim(),
+    status: match[1]!,
+    path: match[2]!.trim(),
   };
 }
 

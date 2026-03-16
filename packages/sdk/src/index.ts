@@ -88,6 +88,8 @@ export type {
   FileContent,
   Operation as RepoHostOperation,
 } from "./services/repohost";
+export { SSHServer, createSSHServer } from "./services/ssh-server";
+export type { SSHServerConfig } from "./services/ssh-server";
 export { ContainerSandboxClient } from "./services/container-sandbox";
 export type {
   ContainerRuntime,

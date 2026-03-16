@@ -50,7 +50,7 @@ const ROOT_TERMINAL_FLAGS = new Set([
 
 function findFirstCommandIndex(argv: string[]): number | null {
   for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
+    const token = argv[index]!;
     if (token === "--") {
       return null;
     }
@@ -107,7 +107,7 @@ function rewriteAgentArgv(argv: string[]): string[] {
   let firstNonOption: string | undefined;
 
   for (let index = agentIndex + 1; index < argv.length; index += 1) {
-    const token = argv[index];
+    const token = argv[index]!;
     if (token === "--") {
       break;
     }
@@ -181,7 +181,7 @@ function rewriteJsonFieldSelection(argv: string[]): string[] {
   const rewritten: string[] = [];
 
   for (let index = 0; index < argv.length; index += 1) {
-    const token = argv[index];
+    const token = argv[index]!;
     rewritten.push(token);
 
     if (token !== "--json") {
@@ -234,7 +234,7 @@ function rewriteRepoCloneArgv(argv: string[]): string[] {
   let directorySeen = false;
 
   for (let index = 0; index < core.length; index += 1) {
-    const token = core[index];
+    const token = core[index]!;
     if (
       flagsWithValues.has(token) ||
       token.startsWith("--clone-arg=") ||

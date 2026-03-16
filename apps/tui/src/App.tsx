@@ -17,11 +17,21 @@ interface ScreenState {
   params: Record<string, string>;
 }
 
-export function App() {
+export interface AppProps {
+  initialRepo?: { owner: string; name: string };
+}
+
+export function App({ initialRepo }: AppProps) {
   const { exit } = useApp();
-  const [screenStack, setScreenStack] = useState<ScreenState[]>([
-    { name: "dashboard", params: {} },
-  ]);
+  const [screenStack, setScreenStack] = useState<ScreenState[]>(() => {
+    if (initialRepo) {
+      return [
+        { name: "dashboard", params: {} },
+        { name: "repo", params: { owner: initialRepo.owner, name: initialRepo.name } },
+      ];
+    }
+    return [{ name: "dashboard", params: {} }];
+  });
 
   const currentScreen = screenStack[screenStack.length - 1]!;
 

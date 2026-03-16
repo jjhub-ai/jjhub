@@ -7,6 +7,7 @@ import {
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -22,37 +23,10 @@ interface LFSConfirmRequest {
   size: number;
 }
 
-// ---------------------------------------------------------------------------
-// Service stub
-// ---------------------------------------------------------------------------
-
-const service = {
-  batch: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _input: any,
-  ): Promise<any[]> => [],
-  confirmUpload: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _input: any,
-  ): Promise<any> => ({}),
-  deleteObject: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _oid: string,
-  ): Promise<void> => {},
-  listObjects: async (
-    _viewer: any,
-    _owner: string,
-    _repo: string,
-    _page: number,
-    _perPage: number,
-  ): Promise<{ items: any[]; total: number }> => ({ items: [], total: 0 }),
-};
+/** Lazily resolve the LFS service from the registry on each request. */
+function service() {
+  return getServices().lfs;
+}
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -70,7 +44,7 @@ app.get("/api/repos/:owner/:repo/lfs/objects", async (c) => {
   const perPage = Math.min(parseInt(query.get("per_page") ?? "30", 10), 50);
 
   try {
-    const { items, total } = await service.listObjects(
+    const { items, total } = await service().listObjects(
       viewer,
       owner,
       repo,
@@ -97,7 +71,7 @@ app.post("/api/repos/:owner/:repo/lfs/batch", async (c) => {
   }
 
   try {
-    const rows = await service.batch(actor, owner, repo, {
+    const rows = await service().batch(actor, owner, repo, {
       operation: body.operation,
       objects: body.objects,
     });
@@ -123,7 +97,7 @@ app.post("/api/repos/:owner/:repo/lfs/confirm", async (c) => {
   }
 
   try {
-    const obj = await service.confirmUpload(actor, owner, repo, {
+    const obj = await service().confirmUpload(actor, owner, repo, {
       oid: body.oid,
       size: body.size,
     });
@@ -146,7 +120,7 @@ app.delete("/api/repos/:owner/:repo/lfs/objects/:oid", async (c) => {
   }
 
   try {
-    await service.deleteObject(actor, owner, repo, oid);
+    await service().deleteObject(actor, owner, repo, oid);
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);

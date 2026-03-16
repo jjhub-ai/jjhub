@@ -1,5 +1,7 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+// NOTE: No WorkspaceService exists in the SDK service registry yet.
+// These routes remain stubbed until a workspace service is implemented.
 
 // ---------------------------------------------------------------------------
 // Stubbed service types (mirrors Go services layer)

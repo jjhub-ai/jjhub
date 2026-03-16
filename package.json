@@ -13,6 +13,7 @@
     "test:e2e": "bun run --filter '@jjhub/e2e-cli' test",
     "sqlc": "sqlc generate",
     "check": "bun run --filter '*' check",
+    "lint": "echo 'no linter configured yet'",
     "clean": "rm -rf apps/*/dist packages/*/dist"
   },
   "devDependencies": {

@@ -95,7 +95,7 @@ export const daemon = Cli.create("daemon", {
         const logFd = openSync(logPath, "a");
 
         const child = spawn(
-          process.argv[0],
+          process.argv[0]!,
           [
             ...process.argv.slice(1, process.argv.indexOf("daemon")),
             "daemon", "start", "--foreground",

@@ -7,6 +7,7 @@ import {
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,63 +49,10 @@ function parseWebhookDeliveryPagination(
   return { cursor, limit };
 }
 
-// ---------------------------------------------------------------------------
-// Service stub — real implementation will be injected later
-// ---------------------------------------------------------------------------
-
-const service = {
-  listWebhooks: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-  ): Promise<any[]> => [],
-  getWebhook: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _id: number,
-  ): Promise<any> => ({}),
-  createWebhook: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _input: any,
-  ): Promise<any> => ({}),
-  updateWebhook: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _id: number,
-    _input: any,
-  ): Promise<any> => ({}),
-  deleteWebhook: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _id: number,
-  ): Promise<void> => {},
-  testWebhook: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _id: number,
-  ): Promise<void> => {},
-  verifyInboundWebhookSignature: async (
-    _owner: string,
-    _repo: string,
-    _id: number,
-    _payload: Uint8Array,
-    _signature: string,
-  ): Promise<void> => {},
-  listWebhookDeliveries: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _id: number,
-    _page: number,
-    _perPage: number,
-  ): Promise<any[]> => [],
-};
+/** Lazily resolve the webhook service from the registry on each request. */
+function service() {
+  return getServices().webhook;
+}
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -118,7 +66,7 @@ app.get("/api/repos/:owner/:repo/hooks", async (c) => {
   const { owner, repo } = c.req.param();
 
   try {
-    const hooks = await service.listWebhooks(actor, owner, repo);
+    const hooks = await service().listWebhooks(actor, owner, repo);
     return writeJSON(c, 200, hooks);
   } catch (err) {
     return writeRouteError(c, err);
@@ -141,7 +89,7 @@ app.post("/api/repos/:owner/:repo/hooks", async (c) => {
   }
 
   try {
-    const created = await service.createWebhook(actor, owner, repo, {
+    const created = await service().createWebhook(actor, owner, repo, {
       url: body.url,
       secret: body.secret,
       events: body.events,
@@ -164,7 +112,7 @@ app.get("/api/repos/:owner/:repo/hooks/:id", async (c) => {
   }
 
   try {
-    const hook = await service.getWebhook(actor, owner, repo, webhookId);
+    const hook = await service().getWebhook(actor, owner, repo, webhookId);
     return writeJSON(c, 200, hook);
   } catch (err) {
     return writeRouteError(c, err);
@@ -192,7 +140,7 @@ app.patch("/api/repos/:owner/:repo/hooks/:id", async (c) => {
   }
 
   try {
-    const updated = await service.updateWebhook(
+    const updated = await service().updateWebhook(
       actor,
       owner,
       repo,
@@ -224,7 +172,7 @@ app.delete("/api/repos/:owner/:repo/hooks/:id", async (c) => {
   }
 
   try {
-    await service.deleteWebhook(actor, owner, repo, webhookId);
+    await service().deleteWebhook(actor, owner, repo, webhookId);
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
@@ -245,7 +193,7 @@ app.post("/api/repos/:owner/:repo/hooks/:id/tests", async (c) => {
   }
 
   try {
-    await service.testWebhook(actor, owner, repo, webhookId);
+    await service().testWebhook(actor, owner, repo, webhookId);
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
@@ -278,7 +226,7 @@ app.post("/api/repos/:owner/:repo/hooks/:id/receive", async (c) => {
   }
 
   try {
-    await service.verifyInboundWebhookSignature(
+    await service().verifyInboundWebhookSignature(
       owner,
       repo,
       webhookId,
@@ -307,7 +255,7 @@ app.get("/api/repos/:owner/:repo/hooks/:id/deliveries", async (c) => {
   const page = cursor ? Math.max(1, Math.ceil(parseInt(cursor, 10) / limit)) : 1;
 
   try {
-    const deliveries = await service.listWebhookDeliveries(
+    const deliveries = await service().listWebhookDeliveries(
       actor,
       owner,
       repo,

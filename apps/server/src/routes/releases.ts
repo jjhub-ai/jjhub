@@ -7,6 +7,7 @@ import {
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -55,109 +56,10 @@ function optionalBoolQuery(
   return { value: false, error: `invalid ${key} value` };
 }
 
-// ---------------------------------------------------------------------------
-// Service stub
-// ---------------------------------------------------------------------------
-
-const service = {
-  listReleases: async (
-    _viewer: any,
-    _owner: string,
-    _repo: string,
-    _opts: any,
-  ): Promise<{ items: any[]; total: number }> => ({ items: [], total: 0 }),
-  createRelease: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _input: any,
-  ): Promise<any> => ({}),
-  getRelease: async (
-    _viewer: any,
-    _owner: string,
-    _repo: string,
-    _id: number,
-  ): Promise<any> => ({}),
-  getReleaseByTag: async (
-    _viewer: any,
-    _owner: string,
-    _repo: string,
-    _tag: string,
-  ): Promise<any> => ({}),
-  getLatestRelease: async (
-    _viewer: any,
-    _owner: string,
-    _repo: string,
-  ): Promise<any> => ({}),
-  updateRelease: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _id: number,
-    _input: any,
-  ): Promise<any> => ({}),
-  deleteRelease: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _id: number,
-  ): Promise<void> => {},
-  deleteReleaseByTag: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _tag: string,
-  ): Promise<void> => {},
-  listReleaseAssets: async (
-    _viewer: any,
-    _owner: string,
-    _repo: string,
-    _releaseId: number,
-  ): Promise<any[]> => [],
-  getReleaseAsset: async (
-    _viewer: any,
-    _owner: string,
-    _repo: string,
-    _releaseId: number,
-    _assetId: number,
-  ): Promise<any> => ({}),
-  attachAsset: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _releaseId: number,
-    _input: any,
-  ): Promise<any> => ({}),
-  confirmAssetUpload: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _releaseId: number,
-    _assetId: number,
-  ): Promise<any> => ({}),
-  updateReleaseAsset: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _releaseId: number,
-    _assetId: number,
-    _input: any,
-  ): Promise<any> => ({}),
-  removeAsset: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _releaseId: number,
-    _assetId: number,
-  ): Promise<void> => {},
-  getReleaseAssetDownloadURL: async (
-    _viewer: any,
-    _owner: string,
-    _repo: string,
-    _releaseId: number,
-    _assetId: number,
-  ): Promise<any> => ({}),
-};
+/** Lazily resolve the release service from the registry on each request. */
+function service() {
+  return getServices().release;
+}
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -184,7 +86,7 @@ app.get("/api/repos/:owner/:repo/releases", async (c) => {
   const perPage = Math.min(parseInt(query.get("per_page") ?? "30", 10), 50);
 
   try {
-    const { items, total } = await service.listReleases(viewer, owner, repo, {
+    const { items, total } = await service().listReleases(viewer, owner, repo, {
       page,
       perPage,
       excludeDrafts: excludeDrafts.value,
@@ -213,7 +115,7 @@ app.post("/api/repos/:owner/:repo/releases", async (c) => {
   }
 
   try {
-    const created = await service.createRelease(actor, owner, repo, {
+    const created = await service().createRelease(actor, owner, repo, {
       tagName: body.tag_name,
       target: body.target_commitish,
       title: body.name,
@@ -233,7 +135,7 @@ app.get("/api/repos/:owner/:repo/releases/latest", async (c) => {
   const { owner, repo } = c.req.param();
 
   try {
-    const release = await service.getLatestRelease(viewer, owner, repo);
+    const release = await service().getLatestRelease(viewer, owner, repo);
     return writeJSON(c, 200, release);
   } catch (err) {
     return writeRouteError(c, err);
@@ -254,7 +156,7 @@ app.get("/api/repos/:owner/:repo/releases/tags/*", async (c) => {
   }
 
   try {
-    const release = await service.getReleaseByTag(viewer, owner, repo, tag);
+    const release = await service().getReleaseByTag(viewer, owner, repo, tag);
     return writeJSON(c, 200, release);
   } catch (err) {
     return writeRouteError(c, err);
@@ -277,7 +179,7 @@ app.delete("/api/repos/:owner/:repo/releases/tags/*", async (c) => {
   }
 
   try {
-    await service.deleteReleaseByTag(actor, owner, repo, tag);
+    await service().deleteReleaseByTag(actor, owner, repo, tag);
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
@@ -295,7 +197,7 @@ app.get("/api/repos/:owner/:repo/releases/:id", async (c) => {
   }
 
   try {
-    const release = await service.getRelease(viewer, owner, repo, releaseId);
+    const release = await service().getRelease(viewer, owner, repo, releaseId);
     return writeJSON(c, 200, release);
   } catch (err) {
     return writeRouteError(c, err);
@@ -323,7 +225,7 @@ app.patch("/api/repos/:owner/:repo/releases/:id", async (c) => {
   }
 
   try {
-    const updated = await service.updateRelease(actor, owner, repo, releaseId, {
+    const updated = await service().updateRelease(actor, owner, repo, releaseId, {
       tagName: body.tag_name,
       target: body.target_commitish,
       title: body.name,
@@ -351,7 +253,7 @@ app.delete("/api/repos/:owner/:repo/releases/:id", async (c) => {
   }
 
   try {
-    await service.deleteRelease(actor, owner, repo, releaseId);
+    await service().deleteRelease(actor, owner, repo, releaseId);
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
@@ -373,7 +275,7 @@ app.get("/api/repos/:owner/:repo/releases/:id/assets", async (c) => {
   }
 
   try {
-    const assets = await service.listReleaseAssets(
+    const assets = await service().listReleaseAssets(
       viewer,
       owner,
       repo,
@@ -400,7 +302,7 @@ app.get("/api/repos/:owner/:repo/releases/:id/assets/:asset_id", async (c) => {
   }
 
   try {
-    const asset = await service.getReleaseAsset(
+    const asset = await service().getReleaseAsset(
       viewer,
       owner,
       repo,
@@ -434,7 +336,7 @@ app.post("/api/repos/:owner/:repo/releases/:id/assets", async (c) => {
   }
 
   try {
-    const result = await service.attachAsset(actor, owner, repo, releaseId, {
+    const result = await service().attachAsset(actor, owner, repo, releaseId, {
       name: body.name,
       size: body.size,
       contentType: body.content_type,
@@ -465,7 +367,7 @@ app.post(
     }
 
     try {
-      const asset = await service.confirmAssetUpload(
+      const asset = await service().confirmAssetUpload(
         actor,
         owner,
         repo,
@@ -506,7 +408,7 @@ app.patch(
     }
 
     try {
-      const asset = await service.updateReleaseAsset(
+      const asset = await service().updateReleaseAsset(
         actor,
         owner,
         repo,
@@ -541,7 +443,7 @@ app.delete(
     }
 
     try {
-      await service.removeAsset(actor, owner, repo, releaseId, assetId);
+      await service().removeAsset(actor, owner, repo, releaseId, assetId);
       return c.body(null, 204);
     } catch (err) {
       return writeRouteError(c, err);
@@ -566,7 +468,7 @@ app.get(
     }
 
     try {
-      const result = await service.getReleaseAssetDownloadURL(
+      const result = await service().getReleaseAssetDownloadURL(
         viewer,
         owner,
         repo,

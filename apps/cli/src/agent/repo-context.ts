@@ -118,17 +118,17 @@ function parseRepoFromRemoteUrl(
     }
 
     return {
-      owner: pseudoUrlMatch[2],
-      repo: pseudoUrlMatch[3],
+      owner: pseudoUrlMatch[2]!,
+      repo: pseudoUrlMatch[3]!,
     };
   }
 
-  const remoteHost = scpMatch[1];
+  const remoteHost = scpMatch[1]!;
   if (remoteHost !== host && remoteHost !== `ssh.${host}`) {
     return null;
   }
 
-  const parts = scpMatch[2].split("/");
+  const parts = scpMatch[2]!.split("/");
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
     return null;
   }
@@ -150,7 +150,7 @@ function detectRepoSlugFromRemotes(output: string | undefined): string | null {
     if (parts.length < 2) continue;
 
     const [name, url] = parts;
-    const parsed = parseRepoFromRemoteUrl(url, host);
+    const parsed = parseRepoFromRemoteUrl(url!, host);
     if (!parsed) continue;
 
     const slug = `${parsed.owner}/${parsed.repo}`;

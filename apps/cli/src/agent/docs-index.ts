@@ -41,8 +41,8 @@ function isHeading(line: string): { level: number; title: string } | null {
   const match = line.match(/^(#{1,6})\s+(.*)$/);
   if (!match) return null;
   return {
-    level: match[1].length,
-    title: match[2].trim(),
+    level: match[1]!.length,
+    title: match[2]!.trim(),
   };
 }
 

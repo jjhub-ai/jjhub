@@ -7,25 +7,13 @@ import {
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { Result } from "better-result";
+import { getServices } from "../services";
 
-// ---------------------------------------------------------------------------
-// Service stub
-// ---------------------------------------------------------------------------
-
-const service = {
-  listNotifications: async (
-    _userId: number,
-    _page: number,
-    _perPage: number,
-  ): Promise<{ items: any[]; total: number }> => ({ items: [], total: 0 }),
-  listNotificationsAfterID: async (
-    _userId: number,
-    _afterId: number,
-    _limit: number,
-  ): Promise<any[]> => [],
-  markRead: async (_userId: number, _notificationId: number): Promise<void> => {},
-  markAllRead: async (_userId: number): Promise<void> => {},
-};
+/** Lazily resolve the notification service from the registry on each request. */
+function service() {
+  return getServices().notification;
+}
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -69,17 +57,12 @@ app.get("/api/notifications/list", async (c) => {
   const page = parseInt(query.get("page") ?? "1", 10);
   const perPage = Math.min(parseInt(query.get("per_page") ?? "30", 10), 50);
 
-  try {
-    const { items, total } = await service.listNotifications(
-      user.id,
-      page,
-      perPage,
-    );
-    c.header("X-Total-Count", String(total));
-    return writeJSON(c, 200, items);
-  } catch (err) {
-    return writeRouteError(c, err);
+  const result = await service().listNotifications(user.id, page, perPage);
+  if (Result.isError(result)) {
+    return writeRouteError(c, result.error);
   }
+  c.header("X-Total-Count", String(result.value.total));
+  return writeJSON(c, 200, result.value.items);
 });
 
 // PATCH /api/notifications/:id
@@ -95,12 +78,11 @@ app.patch("/api/notifications/:id", async (c) => {
     return writeError(c, badRequest("invalid notification id"));
   }
 
-  try {
-    await service.markRead(user.id, notifId);
-    return c.body(null, 204);
-  } catch (err) {
-    return writeRouteError(c, err);
+  const result = await service().markRead(user.id, notifId);
+  if (Result.isError(result)) {
+    return writeRouteError(c, result.error);
   }
+  return c.body(null, 204);
 });
 
 // PUT /api/notifications/mark-read
@@ -110,12 +92,11 @@ app.put("/api/notifications/mark-read", async (c) => {
     return writeError(c, unauthorized("authentication required"));
   }
 
-  try {
-    await service.markAllRead(user.id);
-    return c.body(null, 204);
-  } catch (err) {
-    return writeRouteError(c, err);
+  const result = await service().markAllRead(user.id);
+  if (Result.isError(result)) {
+    return writeRouteError(c, result.error);
   }
+  return c.body(null, 204);
 });
 
 export default app;

@@ -4,11 +4,14 @@ import {
   type FieldError,
   badRequest,
   unauthorized,
+  forbidden,
   validationFailed,
   writeError,
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { Result } from "better-result";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -51,49 +54,26 @@ function validateSecretVariableValue(value: string, resource: string): FieldErro
   return null;
 }
 
-// ---------------------------------------------------------------------------
-// Service stub
-// ---------------------------------------------------------------------------
+/**
+ * Resolve the repository ID by owner and repo name, verifying access.
+ * The SecretService takes repositoryId directly, so we resolve it here.
+ */
+async function resolveRepoId(actor: any, owner: string, repo: string): Promise<string> {
+  const result = await getServices().repo.getRepo(
+    actor ? { id: actor.id, username: actor.username, isAdmin: actor.isAdmin ?? false } : null,
+    owner,
+    repo,
+  );
+  if (Result.isError(result)) {
+    throw result.error;
+  }
+  return String(result.value.id);
+}
 
-const service = {
-  listSecrets: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-  ): Promise<any[]> => [],
-  setSecret: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _name: string,
-    _value: string,
-  ): Promise<any> => ({}),
-  deleteSecret: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _name: string,
-  ): Promise<void> => {},
-  // Variable stubs
-  listVariables: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-  ): Promise<any[]> => [],
-  setVariable: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _name: string,
-    _value: string,
-  ): Promise<any> => ({}),
-  deleteVariable: async (
-    _actor: any,
-    _owner: string,
-    _repo: string,
-    _name: string,
-  ): Promise<void> => {},
-};
+/** Lazily resolve the secret service from the registry on each request. */
+function secretService() {
+  return getServices().secret;
+}
 
 // ---------------------------------------------------------------------------
 // Routes
@@ -111,8 +91,12 @@ app.get("/api/repos/:owner/:repo/secrets", async (c) => {
   const { owner, repo } = c.req.param();
 
   try {
-    const secrets = await service.listSecrets(actor, owner, repo);
-    return writeJSON(c, 200, secrets);
+    const repoId = await resolveRepoId(actor, owner, repo);
+    const result = await secretService().listSecrets(repoId);
+    if (Result.isError(result)) {
+      return writeRouteError(c, result.error);
+    }
+    return writeJSON(c, 200, result.value);
   } catch (err) {
     return writeRouteError(c, err);
   }
@@ -143,14 +127,12 @@ app.post("/api/repos/:owner/:repo/secrets", async (c) => {
   }
 
   try {
-    const secret = await service.setSecret(
-      actor,
-      owner,
-      repo,
-      body.name,
-      body.value,
-    );
-    return writeJSON(c, 201, secret);
+    const repoId = await resolveRepoId(actor, owner, repo);
+    const result = await secretService().setSecret(repoId, body.name, body.value);
+    if (Result.isError(result)) {
+      return writeRouteError(c, result.error);
+    }
+    return writeJSON(c, 201, result.value);
   } catch (err) {
     return writeRouteError(c, err);
   }
@@ -174,7 +156,11 @@ app.delete("/api/repos/:owner/:repo/secrets/:name", async (c) => {
   }
 
   try {
-    await service.deleteSecret(actor, owner, repo, name);
+    const repoId = await resolveRepoId(actor, owner, repo);
+    const result = await secretService().deleteSecret(repoId, name);
+    if (Result.isError(result)) {
+      return writeRouteError(c, result.error);
+    }
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
@@ -191,8 +177,12 @@ app.get("/api/repos/:owner/:repo/variables", async (c) => {
   const { owner, repo } = c.req.param();
 
   try {
-    const variables = await service.listVariables(actor, owner, repo);
-    return writeJSON(c, 200, variables);
+    const repoId = await resolveRepoId(actor, owner, repo);
+    const result = await secretService().listVariables(repoId);
+    if (Result.isError(result)) {
+      return writeRouteError(c, result.error);
+    }
+    return writeJSON(c, 200, result.value);
   } catch (err) {
     return writeRouteError(c, err);
   }
@@ -223,14 +213,12 @@ app.post("/api/repos/:owner/:repo/variables", async (c) => {
   }
 
   try {
-    const variable = await service.setVariable(
-      actor,
-      owner,
-      repo,
-      body.name,
-      body.value,
-    );
-    return writeJSON(c, 201, variable);
+    const repoId = await resolveRepoId(actor, owner, repo);
+    const result = await secretService().setVariable(repoId, body.name, body.value);
+    if (Result.isError(result)) {
+      return writeRouteError(c, result.error);
+    }
+    return writeJSON(c, 201, result.value);
   } catch (err) {
     return writeRouteError(c, err);
   }
@@ -254,7 +242,11 @@ app.delete("/api/repos/:owner/:repo/variables/:name", async (c) => {
   }
 
   try {
-    await service.deleteVariable(actor, owner, repo, name);
+    const repoId = await resolveRepoId(actor, owner, repo);
+    const result = await secretService().deleteVariable(repoId, name);
+    if (Result.isError(result)) {
+      return writeRouteError(c, result.error);
+    }
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);

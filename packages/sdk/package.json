@@ -11,6 +11,10 @@
     "@electric-sql/pglite": "latest",
     "better-result": "latest",
     "hono": "latest",
-    "postgres": "latest"
+    "postgres": "latest",
+    "ssh2": "latest"
+  },
+  "devDependencies": {
+    "@types/ssh2": "latest"
   }
 }

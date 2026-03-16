@@ -10,6 +10,7 @@ import {
   rateLimit,
 } from "./lib/middleware";
 import { initServices } from "./services";
+import { startSSHServer, stopSSHServer } from "./ssh";
 
 import health from "./routes/health";
 import auth from "./routes/auth";
@@ -40,6 +41,12 @@ import integrations from "./routes/integrations";
 // ---------------------------------------------------------------------------
 await initDb();
 initServices();
+
+// Start SSH server (git transport + workspace SSH)
+startSSHServer().catch((err) => {
+  console.error("Failed to start SSH server:", err.message);
+  // Non-fatal: HTTP server continues without SSH support
+});
 
 // ---------------------------------------------------------------------------
 // App setup
@@ -92,12 +99,14 @@ console.log(`JJHub Community Edition starting on port ${port}`);
 // Graceful shutdown
 process.on("SIGINT", async () => {
   console.log("Shutting down...");
+  await stopSSHServer();
   await closeDb();
   process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
   console.log("Shutting down...");
+  await stopSSHServer();
   await closeDb();
   process.exit(0);
 });

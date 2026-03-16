@@ -1723,3 +1723,19 @@ CREATE TABLE IF NOT EXISTS issue_artifacts (
 CREATE INDEX idx_issue_artifacts_repo_id ON issue_artifacts (repository_id, created_at DESC);
 CREATE INDEX idx_issue_artifacts_issue_id ON issue_artifacts (issue_id, created_at DESC);
 CREATE INDEX idx_issue_artifacts_expires_at ON issue_artifacts (expires_at);
+
+-- Sync queue for local-first daemon mode
+CREATE TABLE IF NOT EXISTS _sync_queue (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    method VARCHAR(8) NOT NULL,
+    path TEXT NOT NULL,
+    body JSONB,
+    local_id TEXT,
+    remote_id TEXT,
+    status VARCHAR(16) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'synced', 'conflict', 'failed')),
+    error_message TEXT NOT NULL DEFAULT '',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    synced_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_sync_queue_status ON _sync_queue (status, created_at);

@@ -49,3 +49,10 @@ export {
   type SyncStatus,
   type SyncStatusInfo,
 } from "./sync";
+
+// Auto-start helpers
+export {
+  findJJHubBinary,
+  isInstalled,
+  getInstallInstructions,
+} from "./auto-start";

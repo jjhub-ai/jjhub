@@ -42,6 +42,59 @@
         "command": "jjhub.openWorkspace",
         "title": "JJHub: Open Workspace",
         "icon": "$(folder-opened)"
+      },
+      {
+        "command": "jjhub.openInBrowser",
+        "title": "JJHub: Open in Browser",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "jjhub.connectRepo",
+        "title": "JJHub: Connect Repository",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "jjhub.focusSync",
+        "title": "JJHub: Show Sync Status"
+      },
+      {
+        "command": "jjhub.scm.describe",
+        "title": "JJ: Describe Change",
+        "icon": "$(check)",
+        "enablement": "scmProvider == jj"
+      },
+      {
+        "command": "jjhub.scm.new",
+        "title": "JJ: New Change",
+        "icon": "$(add)",
+        "enablement": "scmProvider == jj"
+      },
+      {
+        "command": "jjhub.scm.squash",
+        "title": "JJ: Squash",
+        "icon": "$(fold)",
+        "enablement": "scmProvider == jj"
+      },
+      {
+        "command": "jjhub.scm.abandon",
+        "title": "JJ: Abandon Change",
+        "icon": "$(trash)",
+        "enablement": "scmProvider == jj"
+      },
+      {
+        "command": "jjhub.scm.revertFile",
+        "title": "JJ: Revert File",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "jjhub.scm.openFile",
+        "title": "JJ: Open Diff",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "jjhub.scm.refresh",
+        "title": "JJ: Refresh",
+        "icon": "$(refresh)"
       }
     ],
     "viewsContainers": {
@@ -66,6 +119,10 @@
         {
           "id": "jjhub-bookmarks",
           "name": "Bookmarks"
+        },
+        {
+          "id": "jjhub-sync",
+          "name": "Sync Status"
         }
       ]
     },
@@ -80,6 +137,55 @@
           "command": "jjhub.syncNow",
           "when": "view == jjhub-bookmarks",
           "group": "navigation"
+        },
+        {
+          "command": "jjhub.syncNow",
+          "when": "view == jjhub-sync",
+          "group": "navigation@1"
+        },
+        {
+          "command": "jjhub.connectRepo",
+          "when": "view == jjhub-sync",
+          "group": "navigation@2"
+        }
+      ],
+      "scm/title": [
+        {
+          "command": "jjhub.scm.new",
+          "when": "scmProvider == jj",
+          "group": "navigation@1"
+        },
+        {
+          "command": "jjhub.scm.squash",
+          "when": "scmProvider == jj",
+          "group": "navigation@2"
+        },
+        {
+          "command": "jjhub.scm.abandon",
+          "when": "scmProvider == jj",
+          "group": "navigation@3"
+        },
+        {
+          "command": "jjhub.scm.refresh",
+          "when": "scmProvider == jj",
+          "group": "navigation@4"
+        }
+      ],
+      "scm/resourceState/context": [
+        {
+          "command": "jjhub.scm.openFile",
+          "when": "scmProvider == jj",
+          "group": "inline@1"
+        },
+        {
+          "command": "jjhub.scm.revertFile",
+          "when": "scmProvider == jj",
+          "group": "inline@2"
+        },
+        {
+          "command": "jjhub.scm.revertFile",
+          "when": "scmProvider == jj",
+          "group": "1_modification"
         }
       ]
     },

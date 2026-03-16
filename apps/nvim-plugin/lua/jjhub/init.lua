@@ -22,10 +22,8 @@ function M.setup(opts)
   local daemon = require("jjhub.daemon")
   local commands = require("jjhub.commands")
 
-  -- Auto-start daemon if configured
-  if M.config.auto_start_daemon then
-    daemon.ensure_running()
-  end
+  -- Auto-start daemon if configured (non-blocking)
+  daemon.setup()
 
   -- Register all user commands
   commands.register()

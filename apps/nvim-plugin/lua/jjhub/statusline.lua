@@ -4,9 +4,10 @@ local api = require("jjhub.api")
 
 -- Cached state for statusline (avoids blocking on every render)
 local state = {
-  sync_status = "offline", -- "online" | "offline" | "syncing"
+  online = false,
+  pending_count = 0,
   workspace = "",
-  unread_count = 0,
+  workspace_status = "",
   last_update = 0,
 }
 
@@ -15,14 +16,15 @@ local timer = nil
 
 --- Fetch latest status from daemon (async).
 local function refresh()
-  api.request_async("GET", "/api/v1/status", nil, function(result, err)
+  api.request_async("GET", "/api/daemon/status", nil, function(result, err)
     if err then
-      state.sync_status = "offline"
+      state.online = false
       return
     end
-    state.sync_status = result.sync_status or "online"
+    state.online = true
+    state.pending_count = result.pending_count or result.pending or 0
     state.workspace = result.workspace or ""
-    state.unread_count = result.unread_count or 0
+    state.workspace_status = result.workspace_status or ""
     state.last_update = vim.loop.now()
   end)
 end
@@ -47,60 +49,56 @@ function M.stop_polling()
   end
 end
 
---- Get the sync status icon and text.
----@return string
-function M.sync_status()
-  local icons = {
-    online = "JJ:ok",
-    offline = "JJ:off",
-    syncing = "JJ:sync",
-  }
-  return icons[state.sync_status] or "JJ:?"
+--- Get whether the daemon is online.
+---@return boolean
+function M.is_online()
+  return state.online
+end
+
+--- Get the pending sync count.
+---@return number
+function M.pending_count()
+  return state.pending_count
 end
 
 --- Get the active workspace name.
 ---@return string
 function M.workspace()
-  if state.workspace == "" then
-    return ""
-  end
   return state.workspace
 end
 
---- Get unread notification count.
----@return number
-function M.unread_count()
-  return state.unread_count
-end
-
---- Get unread notification count as display string.
+--- Get the workspace status string.
 ---@return string
-function M.unread_display()
-  if state.unread_count == 0 then
-    return ""
-  end
-  return tostring(state.unread_count)
+function M.workspace_status()
+  return state.workspace_status
 end
 
 --- Full statusline component string.
---- Suitable for use in lualine or custom statusline.
+--- Format: "JJ: * online | 0 pending" or "JJ: o offline | 3 pending"
+--- If in a workspace, appends workspace info.
 ---@return string
 function M.statusline()
   local parts = {}
 
-  table.insert(parts, M.sync_status())
-
-  local ws = M.workspace()
-  if ws ~= "" then
-    table.insert(parts, ws)
+  if state.online then
+    table.insert(parts, "JJ: \xe2\x97\x8f online")
+  else
+    table.insert(parts, "JJ: \xe2\x97\x8b offline")
   end
 
-  local unread = M.unread_display()
-  if unread ~= "" then
-    table.insert(parts, "(" .. unread .. ")")
+  table.insert(parts, tostring(state.pending_count) .. " pending")
+
+  local result = table.concat(parts, " | ")
+
+  -- Append workspace info if available
+  if state.workspace ~= "" then
+    result = result .. " | " .. state.workspace
+    if state.workspace_status ~= "" then
+      result = result .. " (" .. state.workspace_status .. ")"
+    end
   end
 
-  return table.concat(parts, " | ")
+  return result
 end
 
 --- Lualine component table.
@@ -116,7 +114,8 @@ function M.lualine_component()
       return M.statusline()
     end,
     cond = function()
-      return state.sync_status ~= "offline"
+      -- Always show the statusline so users see online/offline state
+      return true
     end,
   }
 end

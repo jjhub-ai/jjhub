@@ -1,6 +1,7 @@
 local M = {}
 
 local api = require("jjhub.api")
+local repo = require("jjhub.repo")
 
 --- Open a floating window with the given content lines and title.
 ---@param title string
@@ -41,6 +42,16 @@ local function open_float(title, lines, opts)
   return buf, win
 end
 
+--- Get the repo API prefix or notify the user.
+---@return string|nil prefix
+local function require_repo()
+  local prefix = repo.api_prefix()
+  if not prefix then
+    vim.notify("JJHub: Could not detect repo from cwd. Is this a jj/git repository?", vim.log.levels.ERROR)
+  end
+  return prefix
+end
+
 --- :JJIssues - open issue list in Telescope
 local function cmd_issues()
   local has_telescope, _ = pcall(require, "telescope")
@@ -48,27 +59,47 @@ local function cmd_issues()
     require("jjhub.telescope").issues()
   else
     -- Fallback: show in floating window
-    api.request_async("GET", "/api/v1/issues", nil, function(result, err)
+    local prefix = require_repo()
+    if not prefix then
+      return
+    end
+    api.request_async("GET", prefix .. "/issues", nil, function(result, err)
       if err then
         vim.notify("JJHub: Failed to fetch issues: " .. err, vim.log.levels.ERROR)
         return
       end
       local lines = {}
       for _, issue in ipairs(result or {}) do
-        table.insert(lines, string.format("#%d  [%s]  %s", issue.number or 0, issue.state or "?", issue.title or ""))
+        local author = ""
+        if issue.user and issue.user.login then
+          author = issue.user.login
+        elseif type(issue.author) == "table" and issue.author.login then
+          author = issue.author.login
+        elseif type(issue.author) == "string" then
+          author = issue.author
+        end
+        table.insert(
+          lines,
+          string.format("#%-4d  %-8s  %-12s  %s", issue.number or 0, issue.state or "?", author, issue.title or "")
+        )
       end
       if #lines == 0 then
         table.insert(lines, "No issues found.")
       end
-      open_float("Issues", lines)
+      open_float("Issues (" .. repo.display() .. ")", lines)
     end)
   end
 end
 
 --- :JJIssueCreate - floating window to create an issue
 local function cmd_issue_create()
+  local prefix = require_repo()
+  if not prefix then
+    return
+  end
+
   local lines = {
-    "# New Issue",
+    "# New Issue (" .. repo.display() .. ")",
     "# Lines starting with # are comments and will be ignored.",
     "# First non-comment line is the title.",
     "# Remaining non-comment lines are the body.",
@@ -102,7 +133,7 @@ local function cmd_issue_create()
 
     local body = table.concat(body_lines, "\n"):gsub("^%s+", ""):gsub("%s+$", "")
 
-    api.request_async("POST", "/api/v1/issues", { title = title, body = body }, function(result, err)
+    api.request_async("POST", prefix .. "/issues", { title = title, body = body }, function(result, err)
       if err then
         vim.notify("JJHub: Failed to create issue: " .. err, vim.log.levels.ERROR)
         return
@@ -119,19 +150,34 @@ local function cmd_landings()
   if has_telescope then
     require("jjhub.telescope").landings()
   else
-    api.request_async("GET", "/api/v1/landings", nil, function(result, err)
+    local prefix = require_repo()
+    if not prefix then
+      return
+    end
+    api.request_async("GET", prefix .. "/landings", nil, function(result, err)
       if err then
         vim.notify("JJHub: Failed to fetch landing requests: " .. err, vim.log.levels.ERROR)
         return
       end
       local lines = {}
       for _, lr in ipairs(result or {}) do
-        table.insert(lines, string.format("#%d  [%s]  %s", lr.number or 0, lr.state or "?", lr.title or ""))
+        local author = ""
+        if lr.user and lr.user.login then
+          author = lr.user.login
+        elseif type(lr.author) == "table" and lr.author.login then
+          author = lr.author.login
+        elseif type(lr.author) == "string" then
+          author = lr.author
+        end
+        table.insert(
+          lines,
+          string.format("#%-4d  %-8s  %-12s  %s", lr.number or 0, lr.state or "?", author, lr.title or "")
+        )
       end
       if #lines == 0 then
         table.insert(lines, "No landing requests found.")
       end
-      open_float("Landing Requests", lines)
+      open_float("Landing Requests (" .. repo.display() .. ")", lines)
     end)
   end
 end
@@ -142,19 +188,72 @@ local function cmd_changes()
   if has_telescope then
     require("jjhub.telescope").changes()
   else
-    api.request_async("GET", "/api/v1/changes", nil, function(result, err)
+    local prefix = require_repo()
+    if not prefix then
+      return
+    end
+    api.request_async("GET", prefix .. "/changes", nil, function(result, err)
       if err then
         vim.notify("JJHub: Failed to fetch changes: " .. err, vim.log.levels.ERROR)
         return
       end
       local lines = {}
       for _, change in ipairs(result or {}) do
-        table.insert(lines, string.format("%s  %s  %s", change.change_id or "?", change.author or "", change.description or ""))
+        local author = ""
+        if type(change.author) == "table" then
+          author = change.author.login or change.author.name or ""
+        elseif type(change.author) == "string" then
+          author = change.author
+        end
+        table.insert(
+          lines,
+          string.format(
+            "%-12s  %-12s  %s",
+            change.change_id and change.change_id:sub(1, 12) or "?",
+            author,
+            change.description or ""
+          )
+        )
       end
       if #lines == 0 then
         table.insert(lines, "No changes found.")
       end
-      open_float("Changes", lines)
+      open_float("Changes (" .. repo.display() .. ")", lines)
+    end)
+  end
+end
+
+--- :JJBookmarks - open bookmarks list in Telescope
+local function cmd_bookmarks()
+  local has_telescope, _ = pcall(require, "telescope")
+  if has_telescope then
+    require("jjhub.telescope").bookmarks()
+  else
+    local prefix = require_repo()
+    if not prefix then
+      return
+    end
+    api.request_async("GET", prefix .. "/bookmarks", nil, function(result, err)
+      if err then
+        vim.notify("JJHub: Failed to fetch bookmarks: " .. err, vim.log.levels.ERROR)
+        return
+      end
+      local lines = {}
+      for _, bm in ipairs(result or {}) do
+        local target = ""
+        if bm.change_id then
+          target = bm.change_id:sub(1, 12)
+        elseif bm.commit_id then
+          target = bm.commit_id:sub(1, 12)
+        elseif bm.target then
+          target = bm.target:sub(1, 12)
+        end
+        table.insert(lines, string.format("%-30s  %s", bm.name or "?", target))
+      end
+      if #lines == 0 then
+        table.insert(lines, "No bookmarks found.")
+      end
+      open_float("Bookmarks (" .. repo.display() .. ")", lines)
     end)
   end
 end
@@ -169,34 +268,72 @@ local function cmd_search()
   end
 end
 
---- :JJWorkspace - show workspace status
+--- :JJWorkspace - show workspace status for current repo
 local function cmd_workspace()
-  api.request_async("GET", "/api/v1/workspace", nil, function(result, err)
+  local prefix = require_repo()
+  if not prefix then
+    return
+  end
+
+  api.request_async("GET", prefix .. "/changes", nil, function(result, err)
     if err then
       vim.notify("JJHub: Failed to fetch workspace status: " .. err, vim.log.levels.ERROR)
       return
     end
+
+    local display = repo.display()
     local lines = {
-      "Workspace: " .. (result.name or "default"),
-      "Repo: " .. (result.repo or "unknown"),
-      "Change: " .. (result.change_id or "none"),
-      "Status: " .. (result.status or "unknown"),
+      "Repository:  " .. display,
+      "Working dir: " .. vim.fn.getcwd(),
+      "",
+      "--- Recent Changes ---",
+      "",
     }
-    if result.conflicts and #result.conflicts > 0 then
-      table.insert(lines, "")
-      table.insert(lines, "Conflicts:")
-      for _, c in ipairs(result.conflicts) do
-        table.insert(lines, "  - " .. c)
+
+    if result and #result > 0 then
+      for i, change in ipairs(result) do
+        if i > 20 then
+          table.insert(lines, "  ... and " .. (#result - 20) .. " more")
+          break
+        end
+        local author = ""
+        if type(change.author) == "table" then
+          author = change.author.login or change.author.name or ""
+        elseif type(change.author) == "string" then
+          author = change.author
+        end
+        local short_id = change.change_id and change.change_id:sub(1, 12) or "?"
+        table.insert(lines, string.format("  %s  %-12s  %s", short_id, author, change.description or ""))
       end
+    else
+      table.insert(lines, "  No changes found.")
     end
-    open_float("Workspace Status", lines, { width = 60, height = 12 })
+
+    -- Also fetch bookmarks for context
+    api.request_async("GET", prefix .. "/bookmarks", nil, function(bm_result, bm_err)
+      if not bm_err and bm_result and #bm_result > 0 then
+        table.insert(lines, "")
+        table.insert(lines, "--- Bookmarks ---")
+        table.insert(lines, "")
+        for _, bm in ipairs(bm_result) do
+          local target = ""
+          if bm.change_id then
+            target = bm.change_id:sub(1, 12)
+          elseif bm.target then
+            target = bm.target:sub(1, 12)
+          end
+          table.insert(lines, string.format("  %-30s  %s", bm.name or "?", target))
+        end
+      end
+      open_float("Workspace (" .. display .. ")", lines, { width = 80, height = 30 })
+    end)
   end)
 end
 
 --- :JJSync - force sync
 local function cmd_sync()
   vim.notify("JJHub: Syncing...", vim.log.levels.INFO)
-  api.request_async("POST", "/api/v1/sync", nil, function(result, err)
+  api.request_async("POST", "/api/daemon/sync", nil, function(result, err)
     if err then
       vim.notify("JJHub: Sync failed: " .. err, vim.log.levels.ERROR)
       return
@@ -222,7 +359,8 @@ function M.register()
   vim.api.nvim_create_user_command("JJIssueCreate", cmd_issue_create, { desc = "JJHub: Create new issue" })
   vim.api.nvim_create_user_command("JJLandings", cmd_landings, { desc = "JJHub: List landing requests" })
   vim.api.nvim_create_user_command("JJChanges", cmd_changes, { desc = "JJHub: List changes" })
-  vim.api.nvim_create_user_command("JJSearch", cmd_search, { desc = "JJHub: Search (Telescope)" })
+  vim.api.nvim_create_user_command("JJBookmarks", cmd_bookmarks, { desc = "JJHub: List bookmarks" })
+  vim.api.nvim_create_user_command("JJSearch", cmd_search, { desc = "JJHub: Search repositories (Telescope)" })
   vim.api.nvim_create_user_command("JJWorkspace", cmd_workspace, { desc = "JJHub: Workspace status" })
   vim.api.nvim_create_user_command("JJSync", cmd_sync, { desc = "JJHub: Force sync" })
   vim.api.nvim_create_user_command("JJHealth", cmd_health, { desc = "JJHub: Check daemon health" })

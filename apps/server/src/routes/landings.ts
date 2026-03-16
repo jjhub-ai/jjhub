@@ -8,6 +8,7 @@ import {
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { Result } from "better-result";
 import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
@@ -254,8 +255,17 @@ interface LandingRouteService {
 }
 
 /** Lazily resolve the landing service from the registry on each request. */
-function service(): LandingRouteService {
-  return getServices().landing as unknown as LandingRouteService;
+function service() {
+  return getServices().landing;
+}
+
+/**
+ * Unwrap a Result value, throwing the error if it is an error.
+ * This adapts the Result-returning LandingService to the throw-based route pattern.
+ */
+function unwrap<T>(result: any): T {
+  if (Result.isError(result)) throw result.error;
+  return result.value;
 }
 
 // ---------------------------------------------------------------------------
@@ -421,14 +431,14 @@ app.get("/api/repos/:owner/:repo/landings", async (c) => {
     const { page, perPage } = parsePagination(c);
     const state = (c.req.query("state") ?? "").trim();
 
-    const { items, total } = await service().listLandingRequests(
+    const { items, total } = unwrap<{ items: LandingRequestResponse[]; total: number }>(await service().listLandingRequests(
       userFromContext(c),
       owner,
       repo,
       page,
       perPage,
       state,
-    );
+    ));
 
     setPaginationHeaders(c, page, perPage, items.length, total);
     return writeJSON(c, 200, items);
@@ -451,13 +461,13 @@ app.post("/api/repos/:owner/:repo/landings", async (c) => {
       change_ids?: string[];
     }>();
 
-    const created = await service().createLandingRequest(user, owner, repo, {
+    const created = unwrap<LandingRequestResponse>(await service().createLandingRequest(user, owner, repo, {
       title: body.title ?? "",
       body: body.body ?? "",
       target_bookmark: body.target_bookmark ?? "",
       source_bookmark: body.source_bookmark ?? "",
       change_ids: body.change_ids ?? [],
-    });
+    }));
 
     return writeJSON(c, 201, created);
   } catch (err) {
@@ -470,12 +480,12 @@ app.get("/api/repos/:owner/:repo/landings/:number", async (c) => {
   try {
     const { owner, repo, number } = landingRouteContext(c);
 
-    const landing = await service().getLandingRequest(
+    const landing = unwrap<LandingRequestResponse>(await service().getLandingRequest(
       userFromContext(c),
       owner,
       repo,
       number,
-    );
+    ));
 
     return writeJSON(c, 200, landing);
   } catch (err) {
@@ -498,7 +508,7 @@ app.patch("/api/repos/:owner/:repo/landings/:number", async (c) => {
       conflict_status?: string;
     }>();
 
-    const updated = await service().updateLandingRequest(
+    const updated = unwrap<LandingRequestResponse>(await service().updateLandingRequest(
       user,
       owner,
       repo,
@@ -511,7 +521,7 @@ app.patch("/api/repos/:owner/:repo/landings/:number", async (c) => {
         source_bookmark: body.source_bookmark,
         conflict_status: body.conflict_status,
       },
-    );
+    ));
 
     return writeJSON(c, 200, updated);
   } catch (err) {
@@ -525,12 +535,12 @@ app.put("/api/repos/:owner/:repo/landings/:number/land", async (c) => {
     const user = requireRouteUser(c);
     const { owner, repo, number } = landingRouteContext(c);
 
-    const result = await service().landLandingRequest(
+    const result = unwrap<LandLandingRequestAccepted>(await service().landLandingRequest(
       user,
       owner,
       repo,
       number,
-    );
+    ));
 
     return writeJSON(c, 202, result);
   } catch (err) {
@@ -544,14 +554,14 @@ app.get("/api/repos/:owner/:repo/landings/:number/reviews", async (c) => {
     const { owner, repo, number } = landingRouteContext(c);
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service().listLandingReviews(
+    const { items, total } = unwrap<{ items: LandingReviewResponse[]; total: number }>(await service().listLandingReviews(
       userFromContext(c),
       owner,
       repo,
       number,
       page,
       perPage,
-    );
+    ));
 
     setPaginationHeaders(c, page, perPage, items.length, total);
     return writeJSON(c, 200, items);
@@ -571,7 +581,7 @@ app.post("/api/repos/:owner/:repo/landings/:number/reviews", async (c) => {
       body?: string;
     }>();
 
-    const review = await service().createLandingReview(
+    const review = unwrap<LandingReviewResponse>(await service().createLandingReview(
       user,
       owner,
       repo,
@@ -580,7 +590,7 @@ app.post("/api/repos/:owner/:repo/landings/:number/reviews", async (c) => {
         type: body.type ?? "",
         body: body.body ?? "",
       },
-    );
+    ));
 
     return writeJSON(c, 201, review);
   } catch (err) {
@@ -613,14 +623,14 @@ app.patch(
         // empty body is acceptable
       }
 
-      const review = await service().dismissLandingReview(
+      const review = unwrap<LandingRequestReview>(await service().dismissLandingReview(
         user,
         owner,
         repo,
         number,
         reviewID,
         { message: body.message ?? "" },
-      );
+      ));
 
       return writeJSON(c, 200, review);
     } catch (err) {
@@ -635,14 +645,14 @@ app.get("/api/repos/:owner/:repo/landings/:number/comments", async (c) => {
     const { owner, repo, number } = landingRouteContext(c);
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service().listLandingComments(
+    const { items, total } = unwrap<{ items: LandingCommentResponse[]; total: number }>(await service().listLandingComments(
       userFromContext(c),
       owner,
       repo,
       number,
       page,
       perPage,
-    );
+    ));
 
     setPaginationHeaders(c, page, perPage, items.length, total);
     return writeJSON(c, 200, items);
@@ -664,7 +674,7 @@ app.post("/api/repos/:owner/:repo/landings/:number/comments", async (c) => {
       body?: string;
     }>();
 
-    const comment = await service().createLandingComment(
+    const comment = unwrap<LandingCommentResponse>(await service().createLandingComment(
       user,
       owner,
       repo,
@@ -675,7 +685,7 @@ app.post("/api/repos/:owner/:repo/landings/:number/comments", async (c) => {
         side: body.side ?? "",
         body: body.body ?? "",
       },
-    );
+    ));
 
     return writeJSON(c, 201, comment);
   } catch (err) {
@@ -689,14 +699,14 @@ app.get("/api/repos/:owner/:repo/landings/:number/changes", async (c) => {
     const { owner, repo, number } = landingRouteContext(c);
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service().listLandingChanges(
+    const { items, total } = unwrap<{ items: LandingRequestChange[]; total: number }>(await service().listLandingChanges(
       userFromContext(c),
       owner,
       repo,
       number,
       page,
       perPage,
-    );
+    ));
 
     setPaginationHeaders(c, page, perPage, items.length, total);
     return writeJSON(c, 200, items);
@@ -710,13 +720,13 @@ app.get("/api/repos/:owner/:repo/landings/:number/diff", async (c) => {
   try {
     const { owner, repo, number } = landingRouteContext(c);
 
-    const diff = await service().getLandingDiff(
+    const diff = unwrap<LandingDiffResponse>(await service().getLandingDiff(
       userFromContext(c),
       owner,
       repo,
       number,
       { ignore_whitespace: diffWhitespaceIgnored(c) },
-    );
+    ));
 
     return writeJSON(c, 200, diff);
   } catch (err) {
@@ -729,12 +739,12 @@ app.get("/api/repos/:owner/:repo/landings/:number/conflicts", async (c) => {
   try {
     const { owner, repo, number } = landingRouteContext(c);
 
-    const resp = await service().getLandingConflicts(
+    const resp = unwrap<LandingConflictsResponse>(await service().getLandingConflicts(
       userFromContext(c),
       owner,
       repo,
       number,
-    );
+    ));
 
     return writeJSON(c, 200, resp);
   } catch (err) {

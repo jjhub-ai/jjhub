@@ -11,6 +11,8 @@ import {
   ChangeList,
   DiffViewer,
   Search,
+  SyncConflicts,
+  SyncStatus,
 } from "./screens";
 
 interface ScreenState {
@@ -79,6 +81,18 @@ export function App({ initialRepo }: AppProps) {
     // Number shortcuts to jump to top-level screens
     if (input === "1" && currentScreen.name !== "search") {
       setScreenStack([{ name: "dashboard", params: {} }]);
+      return;
+    }
+
+    // Sync status shortcut (Shift+S)
+    if (input === "S" && currentScreen.name === "dashboard") {
+      navigate("sync-status");
+      return;
+    }
+
+    // Conflicts shortcut (Shift+C)
+    if (input === "C" && currentScreen.name === "dashboard") {
+      navigate("sync-conflicts");
       return;
     }
   });
@@ -173,6 +187,10 @@ export function App({ initialRepo }: AppProps) {
       )}
 
       {name === "search" && <Search onNavigate={navigate} />}
+
+      {name === "sync-status" && <SyncStatus onNavigate={navigate} />}
+
+      {name === "sync-conflicts" && <SyncConflicts onNavigate={navigate} />}
     </Box>
   );
 }

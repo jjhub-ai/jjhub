@@ -7,3 +7,5 @@ export { useLandingDetail, type UseLandingDetailResult } from "./useLandingDetai
 export { useChanges, type UseChangesResult } from "./useChanges";
 export { useSearch, type UseSearchResult } from "./useSearch";
 export { useDiff, type UseDiffResult, type DiffFile, type DiffHunk, type DiffHunkLine, type DiffFileChangeType } from "./useDiff";
+export { useSyncStatus, type UseSyncStatusResult, type SyncStatusData, type SyncState } from "./useSyncStatus";
+export { useConflicts, type UseConflictsResult, type SyncConflict } from "./useConflicts";

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useInput } from "ink";
 import { Box, Text, Heading, Muted, List, Spinner, StatusBar, type ListItem } from "../primitives";
-import { useRepos } from "../hooks";
+import { useRepos, useSyncStatus } from "../hooks";
 
 export interface DashboardProps {
   onNavigate: (screen: string, params?: Record<string, string>) => void;
@@ -10,6 +10,7 @@ export interface DashboardProps {
 export function Dashboard({ onNavigate }: DashboardProps) {
   const [focusPanel, setFocusPanel] = useState<"repos" | "activity">("repos");
   const { repos, loading, error } = useRepos();
+  const { data: syncData } = useSyncStatus();
 
   const items: ListItem[] = useMemo(() => {
     if (!repos) return [];
@@ -31,8 +32,34 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   return (
     <Box flexDirection="column" flexGrow={1}>
-      <Box paddingX={1} paddingY={0}>
+      <Box paddingX={1} paddingY={0} gap={2}>
         <Heading>JJHub Dashboard</Heading>
+        <Box gap={1}>
+          <Text
+            color={
+              syncData.status === "online"
+                ? "green"
+                : syncData.status === "syncing"
+                  ? "yellow"
+                  : "red"
+            }
+          >
+            {syncData.status === "online"
+              ? "●"
+              : syncData.status === "syncing"
+                ? "◐"
+                : "○"}
+          </Text>
+          <Text dimColor>
+            {syncData.status === "syncing" ? "syncing" : syncData.status}
+          </Text>
+          {syncData.pending > 0 && (
+            <Text color="yellow">({syncData.pending} pending)</Text>
+          )}
+          {syncData.conflicts > 0 && (
+            <Text color="red">({syncData.conflicts} conflicts)</Text>
+          )}
+        </Box>
       </Box>
 
       <Box flexDirection="row" flexGrow={1} gap={2} paddingX={1}>
@@ -99,6 +126,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           { key: "Enter", label: "open" },
           { key: "Tab", label: "switch panel" },
           { key: "/", label: "search" },
+          { key: "S", label: "sync status" },
+          { key: "C", label: "conflicts" },
           { key: "q", label: "quit" },
         ]}
       />

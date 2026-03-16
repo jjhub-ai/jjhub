@@ -7,3 +7,5 @@ export { LandingDetail, type LandingDetailProps } from "./LandingDetail";
 export { ChangeList, type ChangeListProps } from "./ChangeList";
 export { DiffViewer, type DiffViewerProps } from "./DiffViewer";
 export { Search, type SearchProps } from "./Search";
+export { SyncConflicts, type SyncConflictsProps } from "./SyncConflicts";
+export { SyncStatus, type SyncStatusProps } from "./SyncStatus";

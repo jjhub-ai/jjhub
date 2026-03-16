@@ -134,6 +134,13 @@ export type {
   CreateWorkspaceSnapshotInput,
   CreateWorkspaceSessionInput,
 } from "./services/workspace";
+export { PreviewService } from "./services/preview";
+export type {
+  PreviewStatus,
+  PreviewConfig,
+  PreviewResponse,
+  CreatePreviewInput,
+} from "./services/preview";
 export { ContainerSandboxClient } from "./services/container-sandbox";
 export type {
   ContainerRuntime,
@@ -194,3 +201,18 @@ export type {
   AutoPushEventType,
   AutoPushEvent,
 } from "./services/auto-push";
+
+// Feature flags
+export {
+  FeatureFlagService,
+  getFeatureFlagService,
+  createFeatureFlagService,
+  DefaultFeatureFlagProvider,
+} from "./services/feature-flags";
+export type {
+  FeatureFlagName,
+  PlanTier,
+  FlagDefinition,
+  FlagConfig,
+  FeatureFlagProvider,
+} from "./services/feature-flags";

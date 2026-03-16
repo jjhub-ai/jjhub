@@ -16,6 +16,7 @@ import {
   ensureWorkflowDefinitionReference,
   createWorkflowRun,
   getWorkflowRun,
+  getWorkflowRunByRunID,
   createWorkflowStep,
   createWorkflowTask,
   cancelWorkflowRun,
@@ -26,6 +27,7 @@ import {
   listWorkflowRunsByRepo,
   listWorkflowRunsByDefinition,
   notifyWorkflowRunEvent,
+  updateWorkflowRunStatusBasedOnTasks,
 } from "../db/workflows_sql";
 
 import {
@@ -36,6 +38,10 @@ import {
   listWorkflowStepsByRunID,
   listWorkflowLogsSince,
 } from "../db/workflow_logs_sql";
+
+import {
+  getWorkflowDefinitionNameByRunID,
+} from "../db/workflow_artifacts_sql";
 
 import { getRepoByID } from "../db/repos_sql";
 import { getUserByID } from "../db/users_sql";
@@ -378,7 +384,7 @@ function matchesOn(on: WorkflowOnConfig, event: TriggerEvent): boolean {
   }
 }
 
-export { evaluateIfExpression, ifExpressionReferencesNeeds };
+export { evaluateIfExpression, ifExpressionReferencesNeeds, isTerminalWorkflowRunStatus, workflowRunStatusToAction };
 
 export function matchTrigger(
   configJSON: unknown,
@@ -703,6 +709,54 @@ async function resolveRepoOwner(
     if (org) return org.name;
   }
   return "";
+}
+
+// ---------------------------------------------------------------------------
+// Run status helpers — matches Go's runner.go helpers
+// ---------------------------------------------------------------------------
+
+function isTerminalWorkflowRunStatus(status: string): boolean {
+  switch (status) {
+    case "success":
+    case "failure":
+    case "cancelled":
+    case "error":
+      return true;
+    default:
+      return false;
+  }
+}
+
+function workflowRunStatusToAction(status: string): string {
+  switch (status.trim().toLowerCase()) {
+    case "queued":
+      return "queued";
+    case "running":
+      return "in_progress";
+    case "success":
+      return "completed";
+    case "failure":
+    case "error":
+      return "failure";
+    case "cancelled":
+      return "cancelled";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Resolves the source workflow definition name for a given run ID.
+ * Returns empty string if the definition cannot be found (non-fatal).
+ * Mirrors Go's resolveSourceWorkflowName.
+ */
+async function resolveSourceWorkflowName(
+  sql: Sql,
+  workflowRunId: string
+): Promise<string> {
+  const row = await getWorkflowDefinitionNameByRunID(sql, { id: workflowRunId });
+  if (!row) return "";
+  return row.name.trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -1334,6 +1388,130 @@ export class WorkflowService {
     );
 
     return result;
+  }
+
+  // ---- Artifact-driven re-triggering ----
+
+  /**
+   * handleRunCompletion updates the aggregate run status after a task completes,
+   * then dispatches downstream workflow_run triggers if the run reached a terminal
+   * state. This mirrors Go's runner.go flow:
+   *   updateWorkflowRunStatusBasedOnTasks -> dispatchTriggeredWorkflowRuns
+   *
+   * Call this after marking a task as done/failed/cancelled.
+   */
+  async handleRunCompletion(
+    workflowRunId: string
+  ): Promise<Result<{ status: string; dispatched: WorkflowRunResult[] }, APIError>> {
+    // 1. Update aggregate run status based on all tasks.
+    const statusRow = await updateWorkflowRunStatusBasedOnTasks(this.sql, {
+      id: workflowRunId,
+    });
+    if (!statusRow) {
+      // Run was deleted or has no tasks; nothing to do.
+      return Result.ok({ status: "unknown", dispatched: [] });
+    }
+
+    const runStatus = statusRow.status;
+
+    // 2. Notify via PG LISTEN/NOTIFY (best-effort, non-fatal).
+    try {
+      await notifyWorkflowRunEvent(this.sql, {
+        runId: workflowRunId,
+        payload: JSON.stringify({
+          run_id: Number(workflowRunId),
+          source: "runner.complete_task",
+        }),
+      });
+    } catch {
+      // Non-fatal: notification is best-effort
+    }
+
+    // 3. If the run reached a terminal status, dispatch downstream workflow_run triggers.
+    const dispatched: WorkflowRunResult[] = [];
+    if (isTerminalWorkflowRunStatus(runStatus)) {
+      const downstreamResult = await this.dispatchTriggeredWorkflowRuns(
+        workflowRunId,
+        runStatus
+      );
+      if (downstreamResult.isOk()) {
+        dispatched.push(...downstreamResult.value);
+      }
+      // Errors in downstream dispatch are logged but not propagated (non-fatal).
+    }
+
+    return Result.ok({ status: runStatus, dispatched });
+  }
+
+  /**
+   * onArtifactConfirmed dispatches downstream workflows that have
+   * `on.workflow_artifact` triggers matching the confirmed artifact.
+   * This mirrors Go's workflowArtifactService.dispatchConfirmedArtifactRuns.
+   *
+   * Call this after confirming an artifact upload (status = 'ready').
+   */
+  async onArtifactConfirmed(
+    run: { id: string; repositoryId: string; triggerRef: string; triggerCommitSha: string },
+    artifact: { name: string }
+  ): Promise<Result<WorkflowRunResult[], APIError>> {
+    const sourceWorkflow = await resolveSourceWorkflowName(this.sql, run.id);
+
+    const result = await this.dispatchForEvent({
+      repositoryId: run.repositoryId,
+      userId: "",
+      event: {
+        type: "workflow_artifact",
+        ref: run.triggerRef,
+        commitSHA: run.triggerCommitSha,
+        action: "ready",
+        artifactName: artifact.name,
+        sourceWorkflow,
+      },
+    });
+
+    return result;
+  }
+
+  /**
+   * dispatchTriggeredWorkflowRuns dispatches a workflow_run event to trigger
+   * downstream workflows that listen for workflow_run completion.
+   * Mirrors Go's runner.go dispatchTriggeredWorkflowRuns.
+   */
+  private async dispatchTriggeredWorkflowRuns(
+    workflowRunId: string,
+    runStatus: string
+  ): Promise<Result<WorkflowRunResult[], APIError>> {
+    // Resolve the originating run to get repository context.
+    // Uses getWorkflowRunByRunID (no repositoryId filter), matching
+    // Go's GetWorkflowRunByRunID in the runner service.
+    const run = await getWorkflowRunByRunID(this.sql, { id: workflowRunId });
+    if (!run) {
+      return Result.ok([]);
+    }
+
+    const commitSHA = (run.triggerCommitSha ?? "").trim();
+    if (commitSHA === "") {
+      return Result.ok([]);
+    }
+
+    const action = workflowRunStatusToAction(runStatus);
+    if (action === "") {
+      return Result.ok([]);
+    }
+
+    const sourceWorkflow = await resolveSourceWorkflowName(this.sql, workflowRunId);
+
+    return this.dispatchForEvent({
+      repositoryId: run.repositoryId,
+      userId: "",
+      event: {
+        type: "workflow_run",
+        ref: run.triggerRef,
+        commitSHA: commitSHA,
+        action,
+        sourceWorkflow,
+      },
+    });
   }
 }
 

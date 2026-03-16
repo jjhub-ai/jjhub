@@ -27,6 +27,7 @@ import {
   SSEManager,
   WorkspaceService,
   ContainerSandboxClient,
+  PreviewService,
 } from "@jjhub/sdk";
 
 // ---------------------------------------------------------------------------
@@ -52,6 +53,7 @@ export interface Services {
   lfs: LFSService;
   sse: SSEManager;
   workspace: WorkspaceService;
+  preview: PreviewService;
 }
 
 // ---------------------------------------------------------------------------
@@ -102,6 +104,10 @@ export function initServices(): void {
       sshHost: process.env.JJHUB_WORKSPACE_SSH_HOST ?? "localhost",
       username: process.env.JJHUB_WORKSPACE_USERNAME ?? "root",
       persistence: process.env.JJHUB_WORKSPACE_PERSISTENCE ?? "persistent",
+    }),
+    preview: new PreviewService(db, sandbox, {
+      previewDomain: process.env.JJHUB_PREVIEW_DOMAIN ?? "",
+      hostAddress: process.env.JJHUB_PREVIEW_HOST ?? "localhost",
     }),
   };
 

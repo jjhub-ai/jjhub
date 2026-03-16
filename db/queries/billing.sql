@@ -253,3 +253,106 @@ WHERE wr.repository_id IN (SELECT id FROM owned_repos)
   AND wr.trigger_event = 'agent_message'
   AND wr.created_at >= sqlc.arg(period_start)
   AND wr.created_at < sqlc.arg(period_end);
+
+-- ========================
+-- Credit ledger & balances
+-- ========================
+
+-- name: GetCreditBalance :one
+SELECT billing_account_id, balance_cents, last_grant_at, updated_at
+FROM billing_credit_balances
+WHERE billing_account_id = sqlc.arg(billing_account_id);
+
+-- name: UpsertCreditBalance :one
+INSERT INTO billing_credit_balances (billing_account_id, balance_cents, last_grant_at, updated_at)
+VALUES (sqlc.arg(billing_account_id), sqlc.arg(balance_cents), sqlc.arg(last_grant_at), NOW())
+ON CONFLICT (billing_account_id) DO UPDATE
+SET balance_cents = EXCLUDED.balance_cents,
+    last_grant_at = EXCLUDED.last_grant_at,
+    updated_at = NOW()
+RETURNING *;
+
+-- name: InsertCreditLedgerEntry :one
+INSERT INTO billing_credit_ledger (
+    billing_account_id,
+    amount_cents,
+    balance_after_cents,
+    reason,
+    category,
+    metric_key,
+    idempotency_key
+)
+VALUES (
+    sqlc.arg(billing_account_id),
+    sqlc.arg(amount_cents),
+    sqlc.arg(balance_after_cents),
+    sqlc.arg(reason),
+    sqlc.arg(category),
+    sqlc.arg(metric_key),
+    sqlc.arg(idempotency_key)
+)
+RETURNING *;
+
+-- name: ListCreditLedgerByAccount :many
+SELECT *
+FROM billing_credit_ledger
+WHERE billing_account_id = sqlc.arg(billing_account_id)
+ORDER BY created_at DESC
+LIMIT sqlc.arg(page_size)::bigint
+OFFSET sqlc.arg(page_offset)::bigint;
+
+-- name: CountCreditLedgerByAccount :one
+SELECT COUNT(*)::bigint
+FROM billing_credit_ledger
+WHERE billing_account_id = sqlc.arg(billing_account_id);
+
+-- name: GetCreditLedgerByIdempotencyKey :one
+SELECT *
+FROM billing_credit_ledger
+WHERE billing_account_id = sqlc.arg(billing_account_id)
+  AND idempotency_key = sqlc.arg(idempotency_key)
+  AND idempotency_key != '';
+
+-- name: ListAllActiveBillingAccounts :many
+SELECT id, owner_type, owner_id, stripe_customer_id, stripe_customer_email, stripe_customer_name, created_at, updated_at
+FROM billing_accounts
+ORDER BY id ASC;
+
+-- name: GetUsageCounterByMetric :one
+SELECT *
+FROM billing_usage_counters
+WHERE owner_type = sqlc.arg(owner_type)
+  AND owner_id = sqlc.arg(owner_id)
+  AND metric_key = sqlc.arg(metric_key)
+  AND period_start = sqlc.arg(period_start)
+  AND period_end = sqlc.arg(period_end);
+
+-- name: IncrementUsageCounter :one
+INSERT INTO billing_usage_counters (
+    owner_type,
+    owner_id,
+    metric_key,
+    period_start,
+    period_end,
+    included_quantity,
+    consumed_quantity,
+    overage_quantity,
+    last_reported_meter_event_id,
+    last_synced_at
+)
+VALUES (
+    sqlc.arg(owner_type),
+    sqlc.arg(owner_id),
+    sqlc.arg(metric_key),
+    sqlc.arg(period_start),
+    sqlc.arg(period_end),
+    sqlc.arg(included_quantity),
+    sqlc.arg(consumed_quantity),
+    0,
+    '',
+    NOW()
+)
+ON CONFLICT (owner_type, owner_id, metric_key, period_start, period_end) DO UPDATE
+SET consumed_quantity = billing_usage_counters.consumed_quantity + sqlc.arg(consumed_quantity),
+    updated_at = NOW()
+RETURNING *;

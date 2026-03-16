@@ -2,14 +2,15 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 
-import { initDb, initDbSync, closeDb, getDb, getDbMode, getBlobStore, CleanupScheduler } from "@jjhub/sdk";
+import { initDb, initDbSync, closeDb, getDb, getDbMode, getBlobStore, CleanupScheduler, getFeatureFlagService } from "@jjhub/sdk";
 import {
   requestId,
   authLoader,
   jsonContentType,
   rateLimit,
 } from "./lib/middleware";
-import { initServices } from "./services";
+import { handleGetFeatureFlags } from "./lib/feature-flags";
+import { initServices, getServices } from "./services";
 import { startSSHServer, stopSSHServer } from "./ssh";
 
 import health from "./routes/health";
@@ -36,12 +37,17 @@ import oauth2 from "./routes/oauth2";
 import lfs from "./routes/lfs";
 import integrations from "./routes/integrations";
 import daemon from "./routes/daemon";
+import previews from "./routes/previews";
 
 // ---------------------------------------------------------------------------
 // Initialize database connection and service registry
 // ---------------------------------------------------------------------------
 await initDb();
 initServices();
+
+// Initialize feature flags (loads from env / provider)
+const featureFlags = getFeatureFlagService();
+await featureFlags.loadFeatureFlags();
 
 // Start SSH server (git transport + workspace SSH)
 startSSHServer().catch((err) => {
@@ -74,6 +80,9 @@ app.use("*", rateLimit(120));
 app.use("*", jsonContentType);
 app.use("*", authLoader);
 
+// Feature flags endpoint (public, no auth required — matches Go's FeatureFlagHandler)
+app.get("/api/feature-flags", handleGetFeatureFlags);
+
 // Mount all route modules
 app.route("/", health);
 app.route("/", auth);
@@ -99,6 +108,7 @@ app.route("/", oauth2);
 app.route("/", lfs);
 app.route("/", integrations);
 app.route("/", daemon);
+app.route("/", previews);
 
 const port = parseInt(process.env.JJHUB_PORT ?? "3000");
 
@@ -108,6 +118,7 @@ console.log(`JJHub Community Edition starting on port ${port}`);
 process.on("SIGINT", async () => {
   console.log("Shutting down...");
   cleanupScheduler.stop();
+  await getServices().preview.cleanup();
   await stopSSHServer();
   await closeDb();
   process.exit(0);
@@ -116,6 +127,7 @@ process.on("SIGINT", async () => {
 process.on("SIGTERM", async () => {
   console.log("Shutting down...");
   cleanupScheduler.stop();
+  await getServices().preview.cleanup();
   await stopSSHServer();
   await closeDb();
   process.exit(0);

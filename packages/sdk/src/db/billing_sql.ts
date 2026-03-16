@@ -759,3 +759,387 @@ export async function countAgentRunsByOwner(sql: Sql, args: CountAgentRunsByOwne
     };
 }
 
+// ========================
+// Credit ledger & balances
+// ========================
+
+export const getCreditBalanceQuery = `-- name: GetCreditBalance :one
+SELECT billing_account_id, balance_cents, last_grant_at, updated_at
+FROM billing_credit_balances
+WHERE billing_account_id = $1`;
+
+export interface GetCreditBalanceArgs {
+    billingAccountId: string;
+}
+
+export interface GetCreditBalanceRow {
+    billingAccountId: string;
+    balanceCents: string;
+    lastGrantAt: Date | null;
+    updatedAt: Date;
+}
+
+export async function getCreditBalance(sql: Sql, args: GetCreditBalanceArgs): Promise<GetCreditBalanceRow | null> {
+    const rows = await sql.unsafe(getCreditBalanceQuery, [args.billingAccountId]).values();
+    if (rows.length !== 1) {
+        return null;
+    }
+    const row = rows[0];
+    return {
+        billingAccountId: row[0],
+        balanceCents: row[1],
+        lastGrantAt: row[2],
+        updatedAt: row[3]
+    };
+}
+
+export const upsertCreditBalanceQuery = `-- name: UpsertCreditBalance :one
+INSERT INTO billing_credit_balances (billing_account_id, balance_cents, last_grant_at, updated_at)
+VALUES ($1, $2, $3, NOW())
+ON CONFLICT (billing_account_id) DO UPDATE
+SET balance_cents = EXCLUDED.balance_cents,
+    last_grant_at = EXCLUDED.last_grant_at,
+    updated_at = NOW()
+RETURNING billing_account_id, balance_cents, last_grant_at, updated_at`;
+
+export interface UpsertCreditBalanceArgs {
+    billingAccountId: string;
+    balanceCents: string;
+    lastGrantAt: Date | null;
+}
+
+export interface UpsertCreditBalanceRow {
+    billingAccountId: string;
+    balanceCents: string;
+    lastGrantAt: Date | null;
+    updatedAt: Date;
+}
+
+export async function upsertCreditBalance(sql: Sql, args: UpsertCreditBalanceArgs): Promise<UpsertCreditBalanceRow | null> {
+    const rows = await sql.unsafe(upsertCreditBalanceQuery, [args.billingAccountId, args.balanceCents, args.lastGrantAt]).values();
+    if (rows.length !== 1) {
+        return null;
+    }
+    const row = rows[0];
+    return {
+        billingAccountId: row[0],
+        balanceCents: row[1],
+        lastGrantAt: row[2],
+        updatedAt: row[3]
+    };
+}
+
+export const insertCreditLedgerEntryQuery = `-- name: InsertCreditLedgerEntry :one
+INSERT INTO billing_credit_ledger (
+    billing_account_id,
+    amount_cents,
+    balance_after_cents,
+    reason,
+    category,
+    metric_key,
+    idempotency_key
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, billing_account_id, amount_cents, balance_after_cents, reason, category, metric_key, idempotency_key, created_at`;
+
+export interface InsertCreditLedgerEntryArgs {
+    billingAccountId: string;
+    amountCents: string;
+    balanceAfterCents: string;
+    reason: string;
+    category: string;
+    metricKey: string;
+    idempotencyKey: string;
+}
+
+export interface InsertCreditLedgerEntryRow {
+    id: string;
+    billingAccountId: string;
+    amountCents: string;
+    balanceAfterCents: string;
+    reason: string;
+    category: string;
+    metricKey: string;
+    idempotencyKey: string;
+    createdAt: Date;
+}
+
+export async function insertCreditLedgerEntry(sql: Sql, args: InsertCreditLedgerEntryArgs): Promise<InsertCreditLedgerEntryRow | null> {
+    const rows = await sql.unsafe(insertCreditLedgerEntryQuery, [args.billingAccountId, args.amountCents, args.balanceAfterCents, args.reason, args.category, args.metricKey, args.idempotencyKey]).values();
+    if (rows.length !== 1) {
+        return null;
+    }
+    const row = rows[0];
+    return {
+        id: row[0],
+        billingAccountId: row[1],
+        amountCents: row[2],
+        balanceAfterCents: row[3],
+        reason: row[4],
+        category: row[5],
+        metricKey: row[6],
+        idempotencyKey: row[7],
+        createdAt: row[8]
+    };
+}
+
+export const listCreditLedgerByAccountQuery = `-- name: ListCreditLedgerByAccount :many
+SELECT id, billing_account_id, amount_cents, balance_after_cents, reason, category, metric_key, idempotency_key, created_at
+FROM billing_credit_ledger
+WHERE billing_account_id = $1
+ORDER BY created_at DESC
+LIMIT $2::bigint
+OFFSET $3::bigint`;
+
+export interface ListCreditLedgerByAccountArgs {
+    billingAccountId: string;
+    pageSize: string;
+    pageOffset: string;
+}
+
+export interface ListCreditLedgerByAccountRow {
+    id: string;
+    billingAccountId: string;
+    amountCents: string;
+    balanceAfterCents: string;
+    reason: string;
+    category: string;
+    metricKey: string;
+    idempotencyKey: string;
+    createdAt: Date;
+}
+
+export async function listCreditLedgerByAccount(sql: Sql, args: ListCreditLedgerByAccountArgs): Promise<ListCreditLedgerByAccountRow[]> {
+    return (await sql.unsafe(listCreditLedgerByAccountQuery, [args.billingAccountId, args.pageSize, args.pageOffset]).values()).map(row => ({
+        id: row[0],
+        billingAccountId: row[1],
+        amountCents: row[2],
+        balanceAfterCents: row[3],
+        reason: row[4],
+        category: row[5],
+        metricKey: row[6],
+        idempotencyKey: row[7],
+        createdAt: row[8]
+    }));
+}
+
+export const countCreditLedgerByAccountQuery = `-- name: CountCreditLedgerByAccount :one
+SELECT COUNT(*)::bigint
+FROM billing_credit_ledger
+WHERE billing_account_id = $1`;
+
+export interface CountCreditLedgerByAccountArgs {
+    billingAccountId: string;
+}
+
+export interface CountCreditLedgerByAccountRow {
+    value: string;
+}
+
+export async function countCreditLedgerByAccount(sql: Sql, args: CountCreditLedgerByAccountArgs): Promise<CountCreditLedgerByAccountRow | null> {
+    const rows = await sql.unsafe(countCreditLedgerByAccountQuery, [args.billingAccountId]).values();
+    if (rows.length !== 1) {
+        return null;
+    }
+    const row = rows[0];
+    return {
+        value: row[0]
+    };
+}
+
+export const getCreditLedgerByIdempotencyKeyQuery = `-- name: GetCreditLedgerByIdempotencyKey :one
+SELECT id, billing_account_id, amount_cents, balance_after_cents, reason, category, metric_key, idempotency_key, created_at
+FROM billing_credit_ledger
+WHERE billing_account_id = $1
+  AND idempotency_key = $2
+  AND idempotency_key != ''`;
+
+export interface GetCreditLedgerByIdempotencyKeyArgs {
+    billingAccountId: string;
+    idempotencyKey: string;
+}
+
+export interface GetCreditLedgerByIdempotencyKeyRow {
+    id: string;
+    billingAccountId: string;
+    amountCents: string;
+    balanceAfterCents: string;
+    reason: string;
+    category: string;
+    metricKey: string;
+    idempotencyKey: string;
+    createdAt: Date;
+}
+
+export async function getCreditLedgerByIdempotencyKey(sql: Sql, args: GetCreditLedgerByIdempotencyKeyArgs): Promise<GetCreditLedgerByIdempotencyKeyRow | null> {
+    const rows = await sql.unsafe(getCreditLedgerByIdempotencyKeyQuery, [args.billingAccountId, args.idempotencyKey]).values();
+    if (rows.length !== 1) {
+        return null;
+    }
+    const row = rows[0];
+    return {
+        id: row[0],
+        billingAccountId: row[1],
+        amountCents: row[2],
+        balanceAfterCents: row[3],
+        reason: row[4],
+        category: row[5],
+        metricKey: row[6],
+        idempotencyKey: row[7],
+        createdAt: row[8]
+    };
+}
+
+export const listAllActiveBillingAccountsQuery = `-- name: ListAllActiveBillingAccounts :many
+SELECT id, owner_type, owner_id, stripe_customer_id, stripe_customer_email, stripe_customer_name, created_at, updated_at
+FROM billing_accounts
+ORDER BY id ASC`;
+
+export interface ListAllActiveBillingAccountsRow {
+    id: string;
+    ownerType: string;
+    ownerId: string;
+    stripeCustomerId: string;
+    stripeCustomerEmail: string;
+    stripeCustomerName: string;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export async function listAllActiveBillingAccounts(sql: Sql): Promise<ListAllActiveBillingAccountsRow[]> {
+    return (await sql.unsafe(listAllActiveBillingAccountsQuery, []).values()).map(row => ({
+        id: row[0],
+        ownerType: row[1],
+        ownerId: row[2],
+        stripeCustomerId: row[3],
+        stripeCustomerEmail: row[4],
+        stripeCustomerName: row[5],
+        createdAt: row[6],
+        updatedAt: row[7]
+    }));
+}
+
+export const getUsageCounterByMetricQuery = `-- name: GetUsageCounterByMetric :one
+SELECT id, owner_type, owner_id, metric_key, period_start, period_end, included_quantity, consumed_quantity, overage_quantity, last_reported_meter_event_id, last_synced_at, created_at, updated_at
+FROM billing_usage_counters
+WHERE owner_type = $1
+  AND owner_id = $2
+  AND metric_key = $3
+  AND period_start = $4
+  AND period_end = $5`;
+
+export interface GetUsageCounterByMetricArgs {
+    ownerType: string;
+    ownerId: string;
+    metricKey: string;
+    periodStart: Date;
+    periodEnd: Date;
+}
+
+export interface GetUsageCounterByMetricRow {
+    id: string;
+    ownerType: string;
+    ownerId: string;
+    metricKey: string;
+    periodStart: Date;
+    periodEnd: Date;
+    includedQuantity: string;
+    consumedQuantity: string;
+    overageQuantity: string;
+    lastReportedMeterEventId: string;
+    lastSyncedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export async function getUsageCounterByMetric(sql: Sql, args: GetUsageCounterByMetricArgs): Promise<GetUsageCounterByMetricRow | null> {
+    const rows = await sql.unsafe(getUsageCounterByMetricQuery, [args.ownerType, args.ownerId, args.metricKey, args.periodStart, args.periodEnd]).values();
+    if (rows.length !== 1) {
+        return null;
+    }
+    const row = rows[0];
+    return {
+        id: row[0],
+        ownerType: row[1],
+        ownerId: row[2],
+        metricKey: row[3],
+        periodStart: row[4],
+        periodEnd: row[5],
+        includedQuantity: row[6],
+        consumedQuantity: row[7],
+        overageQuantity: row[8],
+        lastReportedMeterEventId: row[9],
+        lastSyncedAt: row[10],
+        createdAt: row[11],
+        updatedAt: row[12]
+    };
+}
+
+export const incrementUsageCounterQuery = `-- name: IncrementUsageCounter :one
+INSERT INTO billing_usage_counters (
+    owner_type,
+    owner_id,
+    metric_key,
+    period_start,
+    period_end,
+    included_quantity,
+    consumed_quantity,
+    overage_quantity,
+    last_reported_meter_event_id,
+    last_synced_at
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 0, '', NOW())
+ON CONFLICT (owner_type, owner_id, metric_key, period_start, period_end) DO UPDATE
+SET consumed_quantity = billing_usage_counters.consumed_quantity + $7,
+    updated_at = NOW()
+RETURNING id, owner_type, owner_id, metric_key, period_start, period_end, included_quantity, consumed_quantity, overage_quantity, last_reported_meter_event_id, last_synced_at, created_at, updated_at`;
+
+export interface IncrementUsageCounterArgs {
+    ownerType: string;
+    ownerId: string;
+    metricKey: string;
+    periodStart: Date;
+    periodEnd: Date;
+    includedQuantity: string;
+    consumedQuantity: string;
+}
+
+export interface IncrementUsageCounterRow {
+    id: string;
+    ownerType: string;
+    ownerId: string;
+    metricKey: string;
+    periodStart: Date;
+    periodEnd: Date;
+    includedQuantity: string;
+    consumedQuantity: string;
+    overageQuantity: string;
+    lastReportedMeterEventId: string;
+    lastSyncedAt: Date;
+    createdAt: Date;
+    updatedAt: Date;
+}
+
+export async function incrementUsageCounter(sql: Sql, args: IncrementUsageCounterArgs): Promise<IncrementUsageCounterRow | null> {
+    const rows = await sql.unsafe(incrementUsageCounterQuery, [args.ownerType, args.ownerId, args.metricKey, args.periodStart, args.periodEnd, args.includedQuantity, args.consumedQuantity]).values();
+    if (rows.length !== 1) {
+        return null;
+    }
+    const row = rows[0];
+    return {
+        id: row[0],
+        ownerType: row[1],
+        ownerId: row[2],
+        metricKey: row[3],
+        periodStart: row[4],
+        periodEnd: row[5],
+        includedQuantity: row[6],
+        consumedQuantity: row[7],
+        overageQuantity: row[8],
+        lastReportedMeterEventId: row[9],
+        lastSyncedAt: row[10],
+        createdAt: row[11],
+        updatedAt: row[12]
+    };
+}
+

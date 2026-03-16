@@ -1596,6 +1596,36 @@ CREATE TABLE IF NOT EXISTS billing_usage_counters (
 CREATE INDEX idx_billing_usage_counters_owner_metric_period
     ON billing_usage_counters (owner_type, owner_id, metric_key, period_start DESC);
 
+-- Credit ledger: append-only log of all credit transactions (grants, deductions, purchases, expirations)
+CREATE TABLE IF NOT EXISTS billing_credit_ledger (
+    id                  BIGSERIAL PRIMARY KEY,
+    billing_account_id  BIGINT NOT NULL REFERENCES billing_accounts(id) ON DELETE CASCADE,
+    amount_cents        BIGINT NOT NULL,                                         -- positive = credit added, negative = credit consumed
+    balance_after_cents BIGINT NOT NULL,                                         -- running balance after this entry
+    reason              VARCHAR(255) NOT NULL DEFAULT '',                         -- human-readable reason
+    category            VARCHAR(32) NOT NULL CHECK (category IN (
+                            'monthly_grant', 'purchase', 'deduction', 'refund', 'gift', 'expiration', 'adjustment'
+                        )),
+    metric_key          VARCHAR(64) NOT NULL DEFAULT '',                          -- which metered resource (empty for grants/purchases)
+    idempotency_key     VARCHAR(255) NOT NULL DEFAULT '',                         -- prevent duplicate entries
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_billing_credit_ledger_account
+    ON billing_credit_ledger (billing_account_id, created_at DESC);
+
+CREATE UNIQUE INDEX uq_billing_credit_ledger_idempotency
+    ON billing_credit_ledger (billing_account_id, idempotency_key)
+    WHERE idempotency_key != '';
+
+-- Materialized credit balance per account (updated via ledger inserts)
+CREATE TABLE IF NOT EXISTS billing_credit_balances (
+    billing_account_id  BIGINT PRIMARY KEY REFERENCES billing_accounts(id) ON DELETE CASCADE,
+    balance_cents       BIGINT NOT NULL DEFAULT 0,
+    last_grant_at       TIMESTAMPTZ,
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- Linear integration (per-user Linear connection + repo mapping)
 CREATE TABLE IF NOT EXISTS linear_integrations (
     id                       BIGSERIAL PRIMARY KEY,

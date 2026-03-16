@@ -103,6 +103,23 @@ export {
     isFeatureEnabled,
 } from "./stores";
 
+// Commands (shared between web and TUI command palettes)
+export {
+    COMMANDS,
+    CATEGORY_COLORS,
+    CATEGORY_LABELS,
+    getAvailableCommands,
+    type CommandCategory,
+    type CommandDefinition,
+} from "./commands";
+
+export {
+    fuzzyMatch,
+    fuzzyScoreCommand,
+    fuzzyScoreString,
+    type FuzzyMatchResult,
+} from "./commands/fuzzy";
+
 // Hooks (SolidJS signals/resources)
 export {
     useIssues,

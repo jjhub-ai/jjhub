@@ -87,7 +87,7 @@ app.get("/api/repos/:owner/:repo/hooks", async (c) => {
 
   try {
     const hooks = await service().listWebhooks(actor, owner, repo);
-    return writeJSON(c, 200, hooks);
+    return writeJSON(c, 200, mapWebhookResponse(hooks));
   } catch (err) {
     return writeRouteError(c, err);
   }
@@ -115,7 +115,7 @@ app.post("/api/repos/:owner/:repo/hooks", async (c) => {
       events: body.events,
       is_active: body.is_active,
     });
-    return writeJSON(c, 201, created);
+    return writeJSON(c, 201, mapWebhookResponse(created));
   } catch (err) {
     return writeRouteError(c, err);
   }
@@ -133,7 +133,7 @@ app.get("/api/repos/:owner/:repo/hooks/:id", async (c) => {
 
   try {
     const hook = await service().getWebhook(actor, owner, repo, webhookId);
-    return writeJSON(c, 200, hook);
+    return writeJSON(c, 200, mapWebhookResponse(hook));
   } catch (err) {
     return writeRouteError(c, err);
   }
@@ -172,7 +172,7 @@ app.patch("/api/repos/:owner/:repo/hooks/:id", async (c) => {
         is_active: body.is_active,
       },
     );
-    return writeJSON(c, 200, updated);
+    return writeJSON(c, 200, mapWebhookResponse(updated));
   } catch (err) {
     return writeRouteError(c, err);
   }

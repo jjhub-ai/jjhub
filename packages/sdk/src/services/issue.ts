@@ -226,7 +226,7 @@ export class IssueService {
   ): Promise<IssueResponse> {
     if (!actor) throw unauthorized("authentication required");
 
-    const title = req.title.trim();
+    const title = (req.title ?? "").trim();
     if (title === "") {
       throw validationFailed({ resource: "Issue", field: "title", code: "missing_field" });
     }
@@ -375,7 +375,7 @@ export class IssueService {
   ): Promise<IssueCommentResponse> {
     if (!actor) throw unauthorized("authentication required");
 
-    const body = req.body.trim();
+    const body = (req.body ?? "").trim();
     if (body === "") {
       throw validationFailed({ resource: "IssueComment", field: "body", code: "missing_field" });
     }
@@ -429,7 +429,7 @@ export class IssueService {
   ): Promise<IssueCommentResponse> {
     if (!actor) throw unauthorized("authentication required");
 
-    const body = req.body.trim();
+    const body = (req.body ?? "").trim();
     if (body === "") {
       throw validationFailed({ resource: "IssueComment", field: "body", code: "missing_field" });
     }

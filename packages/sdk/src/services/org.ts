@@ -229,7 +229,7 @@ function mapTeam(row: {
   };
 }
 
-function mapRepo(row: {
+function mapRepoWithOwner(owner: string, row: {
   id: string;
   name: string;
   lowerName: string;
@@ -242,12 +242,24 @@ function mapRepo(row: {
     id: Number(row.id),
     name: row.name,
     lower_name: row.lowerName,
-    owner: "",
+    owner,
     description: row.description,
     is_public: row.isPublic,
     created_at: toISOString(row.createdAt),
     updated_at: toISOString(row.updatedAt),
   };
+}
+
+function mapRepo(row: {
+  id: string;
+  name: string;
+  lowerName: string;
+  description: string;
+  isPublic: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}): Repository {
+  return mapRepoWithOwner("", row);
 }
 
 // ---------------------------------------------------------------------------
@@ -486,7 +498,7 @@ export class OrgService {
       const totalRow = await countOrgRepos(this.sql, { orgId: org.id });
       const total = totalRow ? Number(totalRow.count) : 0;
       return Result.ok({
-        items: repos.map(mapRepo),
+        items: repos.map((r) => mapRepoWithOwner(orgName, r)),
         total,
       });
     }
@@ -499,7 +511,7 @@ export class OrgService {
     const totalRow = await countPublicOrgRepos(this.sql, { orgId: org.id });
     const total = totalRow ? Number(totalRow.count) : 0;
     return Result.ok({
-      items: repos.map(mapRepo),
+      items: repos.map((r) => mapRepoWithOwner(orgName, r)),
       total,
     });
   }
@@ -981,7 +993,7 @@ export class OrgService {
     const total = totalRow ? Number(totalRow.count) : 0;
 
     return Result.ok({
-      items: repos.map(mapRepo),
+      items: repos.map((r) => mapRepoWithOwner(orgName, r)),
       total,
     });
   }

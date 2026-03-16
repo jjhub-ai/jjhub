@@ -906,7 +906,7 @@ export class DatabaseAuthService implements AuthService {
     req: CreateTokenRequest
   ): Promise<CreateTokenResult> {
     // Validate name
-    const name = req.name.trim();
+    const name = (req.name ?? "").trim();
     if (name === "") {
       throw validationFailed({
         resource: "AccessToken",
@@ -916,7 +916,7 @@ export class DatabaseAuthService implements AuthService {
     }
 
     // Validate and normalize scopes
-    if (req.scopes.length === 0) {
+    if (!req.scopes || req.scopes.length === 0) {
       throw validationFailed({
         resource: "AccessToken",
         field: "scopes",

@@ -39,6 +39,12 @@ export function RepoOverview({ owner, name, onNavigate }: RepoOverviewProps) {
       case "c":
         onNavigate("changes", { owner, name });
         break;
+      case "a":
+        onNavigate("agent-sessions", { owner, name });
+        break;
+      case "w":
+        onNavigate("workspaces", { owner, name });
+        break;
     }
   });
 
@@ -95,6 +101,8 @@ export function RepoOverview({ owner, name, onNavigate }: RepoOverviewProps) {
           { key: "i", label: "issues" },
           { key: "l", label: "landing requests" },
           { key: "c", label: "changes" },
+          { key: "a", label: "agent" },
+          { key: "w", label: "workspaces" },
           { key: "q", label: "back" },
         ]}
         left={`${owner}/${name}`}

@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Muted, ScrollView, Spinner, StatusBar } from "../primitives";
+import { Box, Text, Heading, Muted, ScrollView, Spinner, StatusBar, ErrorBox, EmptyState } from "../primitives";
+import { formatTimeAgo, theme } from "../utils";
 
 export interface WikiViewProps {
   owner: string;
@@ -14,22 +15,6 @@ interface WikiPage {
   title: string;
   content: string;
   updated_at: string;
-}
-
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w ago`;
 }
 
 /** Simple terminal markdown renderer */
@@ -46,20 +31,19 @@ function renderMarkdown(content: string): React.ReactNode[] {
     // Code block toggle
     if (line.startsWith("```")) {
       if (inCodeBlock) {
-        // End code block
         elements.push(
           <Box
             key={`code-${i}`}
             flexDirection="column"
             borderStyle="single"
-            borderColor="gray"
+            borderColor={theme.border}
             paddingX={1}
           >
             {codeBlockLang && (
               <Text dimColor bold>{codeBlockLang}</Text>
             )}
             {codeBlockLines.map((codeLine, j) => (
-              <Text key={j} color="green">{codeLine}</Text>
+              <Text key={j} color={theme.success}>{codeLine}</Text>
             ))}
           </Box>,
         );
@@ -67,7 +51,6 @@ function renderMarkdown(content: string): React.ReactNode[] {
         codeBlockLang = "";
         inCodeBlock = false;
       } else {
-        // Start code block
         inCodeBlock = true;
         codeBlockLang = line.slice(3).trim();
       }
@@ -82,7 +65,7 @@ function renderMarkdown(content: string): React.ReactNode[] {
     // Headers
     if (line.startsWith("### ")) {
       elements.push(
-        <Text key={i} bold color="yellow">
+        <Text key={i} bold color={theme.warning}>
           {"   "}{line.slice(4)}
         </Text>,
       );
@@ -90,7 +73,7 @@ function renderMarkdown(content: string): React.ReactNode[] {
     }
     if (line.startsWith("## ")) {
       elements.push(
-        <Text key={i} bold color="cyan">
+        <Text key={i} bold color={theme.info}>
           {"  "}{line.slice(3)}
         </Text>,
       );
@@ -98,7 +81,7 @@ function renderMarkdown(content: string): React.ReactNode[] {
     }
     if (line.startsWith("# ")) {
       elements.push(
-        <Text key={i} bold color="cyan" underline>
+        <Text key={i} bold color={theme.info} underline>
           {line.slice(2)}
         </Text>,
       );
@@ -109,7 +92,7 @@ function renderMarkdown(content: string): React.ReactNode[] {
     if (/^---+$/.test(line) || /^\*\*\*+$/.test(line)) {
       elements.push(
         <Text key={i} dimColor>
-          {"────────────────────────────────────────"}
+          {"\u2500".repeat(40)}
         </Text>,
       );
       continue;
@@ -122,7 +105,7 @@ function renderMarkdown(content: string): React.ReactNode[] {
       elements.push(
         <Box key={i} flexDirection="row">
           <Text>{" ".repeat(indent)}</Text>
-          <Text color="cyan"> * </Text>
+          <Text color={theme.info}> * </Text>
           <Text>{renderInlineMarkdown(text)}</Text>
         </Box>,
       );
@@ -139,7 +122,7 @@ function renderMarkdown(content: string): React.ReactNode[] {
         elements.push(
           <Box key={i} flexDirection="row">
             <Text>{" ".repeat(indent)}</Text>
-            <Text color="cyan"> {num}. </Text>
+            <Text color={theme.info}> {num}. </Text>
             <Text>{renderInlineMarkdown(text)}</Text>
           </Box>,
         );
@@ -151,7 +134,7 @@ function renderMarkdown(content: string): React.ReactNode[] {
     if (line.startsWith("> ")) {
       elements.push(
         <Box key={i} flexDirection="row">
-          <Text color="gray"> | </Text>
+          <Text color={theme.muted}> | </Text>
           <Text italic dimColor>{renderInlineMarkdown(line.slice(2))}</Text>
         </Box>,
       );
@@ -175,16 +158,11 @@ function renderMarkdown(content: string): React.ReactNode[] {
 
 /** Render inline markdown (bold, italic, code, links) as plain styled text */
 function renderInlineMarkdown(text: string): string {
-  // Strip inline formatting for terminal display
-  // Remove **bold** and __bold__
   let result = text.replace(/\*\*(.+?)\*\*/g, "$1");
   result = result.replace(/__(.+?)__/g, "$1");
-  // Remove *italic* and _italic_
   result = result.replace(/\*(.+?)\*/g, "$1");
   result = result.replace(/_(.+?)_/g, "$1");
-  // Remove `code`
   result = result.replace(/`(.+?)`/g, "$1");
-  // Remove [text](url) -> text
   result = result.replace(/\[(.+?)\]\(.+?\)/g, "$1");
   return result;
 }
@@ -207,7 +185,6 @@ export function WikiView({ owner, name, slug, onNavigate }: WikiViewProps) {
       try {
         const { repoApiFetch } = await import("@jjhub/ui-core");
         if (slug) {
-          // Fetch single page
           const response = await repoApiFetch(
             `/wiki/pages/${slug}`,
             {},
@@ -222,7 +199,6 @@ export function WikiView({ owner, name, slug, onNavigate }: WikiViewProps) {
             setViewMode("page");
           }
         } else {
-          // Fetch page list
           const response = await repoApiFetch(
             "/wiki/pages",
             {},
@@ -278,8 +254,8 @@ export function WikiView({ owner, name, slug, onNavigate }: WikiViewProps) {
   if (loading) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
-        <Heading>Wiki - {owner}/{name}</Heading>
-        <Spinner label="Loading wiki..." />
+        <Heading>Wiki</Heading>
+        <Spinner label="Loading wiki pages..." />
       </Box>
     );
   }
@@ -287,8 +263,8 @@ export function WikiView({ owner, name, slug, onNavigate }: WikiViewProps) {
   if (error) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
-        <Heading>Wiki - {owner}/{name}</Heading>
-        <Text color="red">Error: {error.message}</Text>
+        <Heading>Wiki</Heading>
+        <ErrorBox message={error.message} hint="Press q to go back." />
       </Box>
     );
   }
@@ -325,18 +301,21 @@ export function WikiView({ owner, name, slug, onNavigate }: WikiViewProps) {
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1}>
-        <Heading>Wiki Pages - {owner}/{name}</Heading>
+        <Heading>Wiki Pages</Heading>
       </Box>
 
       <Box flexDirection="column" flexGrow={1} paddingX={1} paddingY={1}>
         {pages.length === 0 ? (
-          <Muted>No wiki pages found</Muted>
+          <EmptyState
+            message="No wiki pages found."
+            hint="Create wiki pages from the web UI or CLI."
+          />
         ) : (
           pages.map((page, i) => {
             const isSelected = i === selectedIndex;
             return (
               <Box key={page.slug} gap={1}>
-                <Text color={isSelected ? "cyan" : undefined}>
+                <Text color={isSelected ? theme.accent : undefined}>
                   {isSelected ? ">" : " "}
                 </Text>
                 <Text bold={isSelected} color={isSelected ? "white" : undefined}>

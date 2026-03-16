@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Muted, Spinner, StatusBar } from "../primitives";
+import { Box, Text, Heading, Muted, Spinner, StatusBar, ErrorBox, EmptyState } from "../primitives";
 import { repoApiFetch } from "@jjhub/ui-core";
 import type { BookmarkResponse, RepoContext } from "@jjhub/ui-core";
 import { useWorkspaces } from "../hooks";
+import { theme } from "../utils";
 
 type CreatePhase = "select-bookmark" | "confirm" | "creating" | "done" | "error";
 
@@ -107,9 +108,7 @@ export function WorkspaceCreate({ owner, name, onNavigate }: WorkspaceCreateProp
     return (
       <Box flexDirection="column" flexGrow={1}>
         <Box paddingX={1}>
-          <Heading>
-            Create Workspace - {owner}/{name}
-          </Heading>
+          <Heading>Create Workspace</Heading>
         </Box>
 
         <Box paddingX={1} paddingY={1}>
@@ -120,16 +119,19 @@ export function WorkspaceCreate({ owner, name, onNavigate }: WorkspaceCreateProp
           {bookmarksLoading ? (
             <Spinner label="Loading bookmarks..." />
           ) : bookmarksError ? (
-            <Text color="red">Error: {bookmarksError.message}</Text>
+            <ErrorBox message={bookmarksError.message} hint="Press q to go back." />
           ) : bookmarks.length === 0 ? (
-            <Muted>No bookmarks found</Muted>
+            <EmptyState
+              message="No bookmarks found."
+              hint="Create a bookmark first, then create a workspace."
+            />
           ) : (
             bookmarks.map((bm, i) => (
               <Box key={bm.name} gap={1}>
-                <Text color={i === selectedIndex ? "cyan" : "white"} bold={i === selectedIndex}>
+                <Text color={i === selectedIndex ? theme.accent : "white"} bold={i === selectedIndex}>
                   {i === selectedIndex ? "\u25B6" : " "}
                 </Text>
-                <Text color={i === selectedIndex ? "cyan" : "white"} bold={i === selectedIndex}>
+                <Text color={i === selectedIndex ? theme.accent : "white"} bold={i === selectedIndex}>
                   {bm.name}
                 </Text>
                 <Muted>{bm.target_change_id.slice(0, 12)}</Muted>
@@ -162,19 +164,19 @@ export function WorkspaceCreate({ owner, name, onNavigate }: WorkspaceCreateProp
           <Text>Create a new workspace from bookmark:</Text>
           <Box gap={1}>
             <Text dimColor>Bookmark:</Text>
-            <Text color="cyan" bold>
+            <Text color={theme.info} bold>
               {selectedBookmark?.name}
             </Text>
           </Box>
           <Box gap={1}>
             <Text dimColor>Change:</Text>
-            <Text color="magenta">{selectedBookmark?.target_change_id.slice(0, 12)}</Text>
+            <Text color={theme.agent}>{selectedBookmark?.target_change_id.slice(0, 12)}</Text>
           </Box>
           <Box marginTop={1} gap={1}>
             <Text>Continue?</Text>
-            <Text color="green" bold>[y]es</Text>
+            <Text color={theme.success} bold>[y]es</Text>
             <Text dimColor>/</Text>
-            <Text color="red" bold>[n]o</Text>
+            <Text color={theme.error} bold>[n]o</Text>
           </Box>
         </Box>
 
@@ -198,7 +200,7 @@ export function WorkspaceCreate({ owner, name, onNavigate }: WorkspaceCreateProp
 
         <Box paddingX={2} paddingY={2} flexDirection="column" gap={1}>
           <Spinner label={`Creating workspace from ${selectedBookmark?.name}...`} />
-          <Muted>This may take a moment</Muted>
+          <Muted>This may take a moment.</Muted>
         </Box>
       </Box>
     );
@@ -213,14 +215,14 @@ export function WorkspaceCreate({ owner, name, onNavigate }: WorkspaceCreateProp
         </Box>
 
         <Box paddingX={2} paddingY={2} flexDirection="column" gap={1}>
-          <Text color="green" bold>
+          <Text color={theme.success} bold>
             Workspace created successfully!
           </Text>
           <Box gap={1}>
             <Text dimColor>Bookmark:</Text>
-            <Text color="cyan">{selectedBookmark?.name}</Text>
+            <Text color={theme.info}>{selectedBookmark?.name}</Text>
           </Box>
-          <Muted>Press Enter or q to return to workspace list</Muted>
+          <Muted>Press Enter or q to return to workspace list.</Muted>
         </Box>
 
         <StatusBar
@@ -241,11 +243,11 @@ export function WorkspaceCreate({ owner, name, onNavigate }: WorkspaceCreateProp
       </Box>
 
       <Box paddingX={2} paddingY={2} flexDirection="column" gap={1}>
-        <Text color="red" bold>
-          Failed to create workspace
-        </Text>
-        <Text color="red">{createError}</Text>
-        <Muted>Press Enter or q to try again</Muted>
+        <ErrorBox
+          title="Workspace Creation Failed"
+          message={createError ?? "Unknown error"}
+          hint="Press Enter or q to try again."
+        />
       </Box>
 
       <StatusBar

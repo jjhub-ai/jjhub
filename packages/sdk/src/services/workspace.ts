@@ -51,6 +51,7 @@ const DEFAULT_USERNAME = "root";
 const DEFAULT_IDLE_TIMEOUT_SECONDS = 1800;
 const DEFAULT_PERSISTENCE = "persistent";
 const STALE_AFTER_SECONDS = 300; // 5 minutes
+const SANDBOX_ACCESS_TOKEN_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // ---------------------------------------------------------------------------
 // Response types — match the route-level interfaces exactly
@@ -279,22 +280,33 @@ export class WorkspaceService {
     });
     if (!workspace) return null;
 
-    // Get SSH info from the container
     const vmId = workspace.freestyleVmId.trim();
     if (!vmId) return null;
 
-    const sshInfo = await this.sandbox.getSSHConnectionInfo(vmId, this.username);
+    // Generate a short-lived sandbox access token instead of using Freestyle identity.
+    const rawToken = randomUUID();
+    const tokenHash = createHash("sha256").update(rawToken).digest();
+
+    await dbCreateSandboxAccessToken(this.sql, {
+      workspaceId: workspace.id,
+      vmId,
+      userId: String(userID),
+      linuxUser: this.username,
+      tokenHash: tokenHash,
+      tokenType: "ssh",
+      expiresAt: new Date(Date.now() + SANDBOX_ACCESS_TOKEN_TTL_MS),
+    });
 
     return {
       workspace_id: workspace.id,
       session_id: "",
       vm_id: vmId,
-      host: sshInfo.host,
-      ssh_host: `${vmId}@${this.sshHost}`,
-      username: sshInfo.username,
-      port: sshInfo.port,
-      access_token: "",
-      command: `ssh -p ${sshInfo.port} ${sshInfo.username}@${sshInfo.host}`,
+      host: this.sshHost,
+      ssh_host: `${vmId}+${this.username}@${this.sshHost}`,
+      username: this.username,
+      port: 22,
+      access_token: rawToken,
+      command: `ssh ${vmId}+${this.username}:${rawToken}@${this.sshHost}`,
     };
   }
 

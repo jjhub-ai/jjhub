@@ -1,5 +1,13 @@
-import { BrowserWindow, Tray, Utils } from "electrobun/bun";
-import { SyncStatus, getSyncStatusLabel, startSyncMonitor, stopSyncMonitor, forceSyncNow } from "../sync-status";
+import { BrowserWindow, Tray, Utils, type MenuItemConfig } from "electrobun/bun";
+import {
+  SyncStatus,
+  getSyncStatusLabel,
+  startSyncMonitor,
+  stopSyncMonitor,
+  forceSyncNow,
+  currentState,
+  type SyncState,
+} from "../sync-status";
 import { configureTransport } from "@jjhub/ui-core/api/transport";
 
 // ---------------------------------------------------------------------------
@@ -9,6 +17,7 @@ process.env.JJHUB_DB_MODE = "pglite";
 process.env.JJHUB_PORT = "4000";
 
 const DAEMON_URL = "http://localhost:4000";
+const APP_VERSION = "0.0.1";
 
 // ---------------------------------------------------------------------------
 // 2. Start the JJHub daemon in-process
@@ -61,10 +70,8 @@ function createWindow(): void {
 
 function showWindow(): void {
   if (mainWindow) {
-    // BrowserWindow doesn't have a native show/focus yet — recreate if needed
     try {
-      // Attempt to focus the existing window
-      mainWindow.title = "JJHub";
+      mainWindow.show();
     } catch {
       createWindow();
     }
@@ -73,64 +80,222 @@ function showWindow(): void {
   }
 }
 
+function navigateMainWindow(path: string): void {
+  if (mainWindow) {
+    try {
+      mainWindow.webview.loadURL(`${DAEMON_URL}${path}`);
+      mainWindow.show();
+    } catch {
+      mainWindow = new BrowserWindow({
+        title: "JJHub",
+        url: `${DAEMON_URL}${path}`,
+        frame: {
+          width: 1280,
+          height: 860,
+          x: 100,
+          y: 100,
+        },
+        preload: PRELOAD_SCRIPT,
+      });
+    }
+  } else {
+    mainWindow = new BrowserWindow({
+      title: "JJHub",
+      url: `${DAEMON_URL}${path}`,
+      frame: {
+        width: 1280,
+        height: 860,
+        x: 100,
+        y: 100,
+      },
+      preload: PRELOAD_SCRIPT,
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
-// 4. System tray with sync status
+// 4. System tray — status icon and dynamic menu
 // ---------------------------------------------------------------------------
+
+/**
+ * Return a tray title that reflects the sync state.
+ *
+ * ElectroBun's Tray uses `title` as the visible text next to the icon on
+ * macOS. We use a single-character indicator so it stays compact.
+ *
+ * Since ElectroBun's `setImage` accepts a file path, and we may not have
+ * bundled icon assets yet, we use the tray title as a lightweight status
+ * indicator. Once real icon assets are added, swap to `tray.setImage(...)`.
+ */
+function trayTitleForStatus(status: SyncStatus, pendingCount: number): string {
+  switch (status) {
+    case SyncStatus.Online:
+      return pendingCount > 0 ? `JJHub (${pendingCount})` : "JJHub";
+    case SyncStatus.Syncing:
+      return "JJHub ~";
+    case SyncStatus.Offline:
+    case SyncStatus.Error:
+      return "JJHub !";
+  }
+}
+
 const tray = new Tray({
   title: "JJHub",
 });
 
-function updateTrayMenu(status: SyncStatus, pendingCount: number): void {
-  const statusLabel = getSyncStatusLabel(status, pendingCount);
+/**
+ * Build and apply the tray menu from the current sync state.
+ *
+ * The menu structure:
+ *   "JJHub" (header, disabled)
+ *   ───────
+ *   Open JJHub
+ *   Sync Status: ...
+ *   Force Sync
+ *   ───────
+ *   Recent Repos ▸ (submenu)
+ *   ───────
+ *   Preferences...
+ *   About JJHub
+ *   ───────
+ *   Quit JJHub
+ */
+function buildTrayMenu(syncState: SyncState): MenuItemConfig[] {
+  const statusLabel = getSyncStatusLabel(syncState.status, syncState.pendingCount);
 
-  tray.setMenu([
-    { type: "normal", label: "Open JJHub", action: "open" },
-    { type: "divider" },
-    { type: "normal", label: statusLabel, action: "status" },
-    { type: "normal", label: "Force Sync", action: "force-sync" },
-    { type: "divider" },
-    { type: "normal", label: "Preferences...", action: "preferences" },
-    { type: "divider" },
-    { type: "normal", label: "Quit JJHub", action: "quit" },
-  ]);
+  // Build notification badge into the status label when there are unreads
+  const notifSuffix =
+    syncState.unreadNotifications > 0
+      ? ` [${syncState.unreadNotifications} unread]`
+      : "";
+
+  // Recent repos submenu
+  const recentRepoItems: MenuItemConfig[] =
+    syncState.recentRepos.length > 0
+      ? syncState.recentRepos.slice(0, 10).map((repo) => ({
+          type: "normal" as const,
+          label: repo.fullName,
+          action: "open-repo",
+          data: { fullName: repo.fullName },
+        }))
+      : [
+          {
+            type: "normal" as const,
+            label: "No recent repos",
+            action: "",
+            enabled: false,
+          },
+        ];
+
+  return [
+    // Header
+    {
+      type: "normal",
+      label: "JJHub",
+      action: "",
+      enabled: false,
+    },
+    { type: "separator" },
+
+    // Main actions
+    {
+      type: "normal",
+      label: "Open JJHub",
+      action: "open",
+    },
+    {
+      type: "normal",
+      label: `${statusLabel}${notifSuffix}`,
+      action: "status",
+    },
+    {
+      type: "normal",
+      label: "Force Sync",
+      action: "force-sync",
+      enabled: syncState.status !== SyncStatus.Syncing,
+    },
+    { type: "separator" },
+
+    // Recent repos
+    {
+      type: "normal",
+      label: "Recent Repos",
+      action: "",
+      submenu: recentRepoItems,
+    },
+    { type: "separator" },
+
+    // App actions
+    {
+      type: "normal",
+      label: "Preferences...",
+      action: "preferences",
+    },
+    {
+      type: "normal",
+      label: "About JJHub",
+      action: "about",
+    },
+    { type: "separator" },
+
+    // Quit
+    {
+      type: "normal",
+      label: "Quit JJHub",
+      action: "quit",
+    },
+  ];
+}
+
+function updateTray(syncState: SyncState): void {
+  tray.setTitle(trayTitleForStatus(syncState.status, syncState.pendingCount));
+  tray.setMenu(buildTrayMenu(syncState));
 }
 
 // Handle tray menu clicks
 tray.on("tray-clicked", (event: any) => {
   const action = event.data?.action;
+  const data = event.data?.data;
 
   switch (action) {
     case "open":
       showWindow();
       break;
 
+    case "status":
+      navigateMainWindow("/sync");
+      break;
+
     case "force-sync":
       forceSyncNow();
       break;
 
-    case "preferences":
-      // Open the settings page in the main window
-      if (mainWindow) {
-        mainWindow.url = `${DAEMON_URL}/settings`;
-      } else {
-        mainWindow = new BrowserWindow({
-          title: "JJHub - Preferences",
-          url: `${DAEMON_URL}/settings`,
-          frame: {
-            width: 800,
-            height: 600,
-            x: 200,
-            y: 200,
-          },
-        });
+    case "open-repo": {
+      const fullName = data?.fullName;
+      if (fullName) {
+        navigateMainWindow(`/${fullName}`);
       }
+      break;
+    }
+
+    case "preferences":
+      navigateMainWindow("/settings");
+      break;
+
+    case "about":
+      Utils.showMessageBox({
+        type: "info",
+        title: "About JJHub",
+        message: "JJHub Desktop",
+        detail: `Version ${APP_VERSION}\n\njj-native code hosting platform\nhttps://jjhub.tech`,
+        buttons: ["OK"],
+      });
       break;
 
     case "quit":
       gracefulShutdown();
       break;
 
-    // "status" is informational — no-op
     default:
       break;
   }
@@ -139,12 +304,12 @@ tray.on("tray-clicked", (event: any) => {
 // ---------------------------------------------------------------------------
 // 5. Sync monitor integration
 // ---------------------------------------------------------------------------
-startSyncMonitor(DAEMON_URL, (status, pendingCount) => {
-  updateTrayMenu(status, pendingCount);
+startSyncMonitor(DAEMON_URL, (syncState) => {
+  updateTray(syncState);
 });
 
 // Set initial tray menu
-updateTrayMenu(SyncStatus.Offline, 0);
+updateTray(currentState());
 
 // ---------------------------------------------------------------------------
 // 6. Graceful shutdown

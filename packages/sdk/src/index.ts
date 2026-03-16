@@ -100,3 +100,19 @@ export type {
   ExecResult,
   SSHConnectionInfo,
 } from "./services/container-sandbox";
+
+// Sync (local-first daemon mode)
+export { SyncService, createSyncService } from "./services/sync";
+export type {
+  SyncStatus,
+  SyncState,
+  ShapeSubscription,
+  SyncServiceConfig,
+} from "./services/sync";
+export { SyncQueue } from "./services/sync-queue";
+export type {
+  SyncQueueStatus,
+  SyncQueueItem,
+  FlushResult,
+  RemoteCaller,
+} from "./services/sync-queue";

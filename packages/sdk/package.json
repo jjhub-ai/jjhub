@@ -7,6 +7,7 @@
     "check": "tsc --noEmit"
   },
   "dependencies": {
+    "@electric-sql/client": "latest",
     "@electric-sql/pglite": "latest",
     "better-result": "latest",
     "hono": "latest",

@@ -4,9 +4,11 @@ import {
   badRequest,
   unauthorized,
   internal,
+  getUser,
   writeJSON,
   writeRouteError,
 } from "@jjhub/sdk";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Types — match Go's services.* input/response structs exactly
@@ -251,57 +253,9 @@ interface LandingRouteService {
   ): Promise<LandingDiffResponse>;
 }
 
-// ---------------------------------------------------------------------------
-// Stub service — returns internal errors for all operations (TODO: wire DB)
-// ---------------------------------------------------------------------------
-
-const stubService: LandingRouteService = {
-  async listLandingRequests() {
-    throw internal("landing service not implemented");
-  },
-  async createLandingRequest() {
-    throw internal("landing service not implemented");
-  },
-  async getLandingRequest() {
-    throw internal("landing service not implemented");
-  },
-  async updateLandingRequest() {
-    throw internal("landing service not implemented");
-  },
-  async landLandingRequest() {
-    throw internal("landing service not implemented");
-  },
-  async listLandingReviews() {
-    throw internal("landing service not implemented");
-  },
-  async createLandingReview() {
-    throw internal("landing service not implemented");
-  },
-  async dismissLandingReview() {
-    throw internal("landing service not implemented");
-  },
-  async listLandingComments() {
-    throw internal("landing service not implemented");
-  },
-  async createLandingComment() {
-    throw internal("landing service not implemented");
-  },
-  async listLandingChanges() {
-    throw internal("landing service not implemented");
-  },
-  async getLandingConflicts() {
-    throw internal("landing service not implemented");
-  },
-  async getLandingDiff() {
-    throw internal("landing service not implemented");
-  },
-};
-
-let service: LandingRouteService = stubService;
-
-/** Replace the landing service implementation (used at startup to wire real DB). */
-export function setLandingService(svc: LandingRouteService): void {
-  service = svc;
+/** Lazily resolve the landing service from the registry on each request. */
+function service(): LandingRouteService {
+  return getServices().landing as unknown as LandingRouteService;
 }
 
 // ---------------------------------------------------------------------------
@@ -309,9 +263,10 @@ export function setLandingService(svc: LandingRouteService): void {
 // ---------------------------------------------------------------------------
 
 /** Extract the authenticated user from context. Returns null if unauthenticated. */
-function userFromContext(_c: Context): User | null {
-  // TODO: wire middleware auth context
-  return null;
+function userFromContext(c: Context): User | null {
+  const user = getUser(c);
+  if (!user) return null;
+  return { id: user.id, username: user.username };
 }
 
 /** Require an authenticated user or throw 401. Matches Go requireRouteUser. */
@@ -466,7 +421,7 @@ app.get("/api/repos/:owner/:repo/landings", async (c) => {
     const { page, perPage } = parsePagination(c);
     const state = (c.req.query("state") ?? "").trim();
 
-    const { items, total } = await service.listLandingRequests(
+    const { items, total } = await service().listLandingRequests(
       userFromContext(c),
       owner,
       repo,
@@ -496,7 +451,7 @@ app.post("/api/repos/:owner/:repo/landings", async (c) => {
       change_ids?: string[];
     }>();
 
-    const created = await service.createLandingRequest(user, owner, repo, {
+    const created = await service().createLandingRequest(user, owner, repo, {
       title: body.title ?? "",
       body: body.body ?? "",
       target_bookmark: body.target_bookmark ?? "",
@@ -515,7 +470,7 @@ app.get("/api/repos/:owner/:repo/landings/:number", async (c) => {
   try {
     const { owner, repo, number } = landingRouteContext(c);
 
-    const landing = await service.getLandingRequest(
+    const landing = await service().getLandingRequest(
       userFromContext(c),
       owner,
       repo,
@@ -543,7 +498,7 @@ app.patch("/api/repos/:owner/:repo/landings/:number", async (c) => {
       conflict_status?: string;
     }>();
 
-    const updated = await service.updateLandingRequest(
+    const updated = await service().updateLandingRequest(
       user,
       owner,
       repo,
@@ -570,7 +525,7 @@ app.put("/api/repos/:owner/:repo/landings/:number/land", async (c) => {
     const user = requireRouteUser(c);
     const { owner, repo, number } = landingRouteContext(c);
 
-    const result = await service.landLandingRequest(
+    const result = await service().landLandingRequest(
       user,
       owner,
       repo,
@@ -589,7 +544,7 @@ app.get("/api/repos/:owner/:repo/landings/:number/reviews", async (c) => {
     const { owner, repo, number } = landingRouteContext(c);
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service.listLandingReviews(
+    const { items, total } = await service().listLandingReviews(
       userFromContext(c),
       owner,
       repo,
@@ -616,7 +571,7 @@ app.post("/api/repos/:owner/:repo/landings/:number/reviews", async (c) => {
       body?: string;
     }>();
 
-    const review = await service.createLandingReview(
+    const review = await service().createLandingReview(
       user,
       owner,
       repo,
@@ -658,7 +613,7 @@ app.patch(
         // empty body is acceptable
       }
 
-      const review = await service.dismissLandingReview(
+      const review = await service().dismissLandingReview(
         user,
         owner,
         repo,
@@ -680,7 +635,7 @@ app.get("/api/repos/:owner/:repo/landings/:number/comments", async (c) => {
     const { owner, repo, number } = landingRouteContext(c);
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service.listLandingComments(
+    const { items, total } = await service().listLandingComments(
       userFromContext(c),
       owner,
       repo,
@@ -709,7 +664,7 @@ app.post("/api/repos/:owner/:repo/landings/:number/comments", async (c) => {
       body?: string;
     }>();
 
-    const comment = await service.createLandingComment(
+    const comment = await service().createLandingComment(
       user,
       owner,
       repo,
@@ -734,7 +689,7 @@ app.get("/api/repos/:owner/:repo/landings/:number/changes", async (c) => {
     const { owner, repo, number } = landingRouteContext(c);
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = await service.listLandingChanges(
+    const { items, total } = await service().listLandingChanges(
       userFromContext(c),
       owner,
       repo,
@@ -755,7 +710,7 @@ app.get("/api/repos/:owner/:repo/landings/:number/diff", async (c) => {
   try {
     const { owner, repo, number } = landingRouteContext(c);
 
-    const diff = await service.getLandingDiff(
+    const diff = await service().getLandingDiff(
       userFromContext(c),
       owner,
       repo,
@@ -774,7 +729,7 @@ app.get("/api/repos/:owner/:repo/landings/:number/conflicts", async (c) => {
   try {
     const { owner, repo, number } = landingRouteContext(c);
 
-    const resp = await service.getLandingConflicts(
+    const resp = await service().getLandingConflicts(
       userFromContext(c),
       owner,
       repo,

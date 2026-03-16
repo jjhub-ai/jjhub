@@ -320,13 +320,17 @@ app.delete("/api/repos/:owner/:repo/issues/comments/:id", async (c) => {
 });
 
 // Issue labels — these are routes under issues path, delegating to label service.
-// Param validation matches Go; service calls stubbed until wired.
 app.get("/api/repos/:owner/:repo/issues/:number/labels", async (c) => {
   try {
-    repoOwnerAndName(c);
-    parseInt64Param(c, "number", "issue number is required", "invalid issue number");
-    parsePagination(c);
-    throw internal("not implemented");
+    const { owner, repo } = repoOwnerAndName(c);
+    const number = parseInt64Param(c, "number", "issue number is required", "invalid issue number");
+    const { cursor, limit } = parsePagination(c);
+    const page = cursorToPage(cursor, limit);
+    const viewer = getUser(c) ?? null;
+
+    const { items, total } = await getServices().label.listIssueLabels(viewer, owner, repo, number, page, limit);
+    setPaginationHeaders(c, total);
+    return writeJSON(c, 200, items);
   } catch (err) {
     return writeRouteError(c, err);
   }
@@ -334,10 +338,13 @@ app.get("/api/repos/:owner/:repo/issues/:number/labels", async (c) => {
 
 app.post("/api/repos/:owner/:repo/issues/:number/labels", async (c) => {
   try {
-    repoOwnerAndName(c);
-    parseInt64Param(c, "number", "issue number is required", "invalid issue number");
-    await decodeJSONBody<{ labels: string[] }>(c);
-    throw internal("not implemented");
+    const { owner, repo } = repoOwnerAndName(c);
+    const number = parseInt64Param(c, "number", "issue number is required", "invalid issue number");
+    const body = await decodeJSONBody<{ labels: string[] }>(c);
+    const actor = getUser(c) ?? null;
+
+    const labels = await getServices().label.addLabelsToIssue(actor, owner, repo, number, body.labels ?? []);
+    return writeJSON(c, 200, labels);
   } catch (err) {
     return writeRouteError(c, err);
   }
@@ -345,11 +352,14 @@ app.post("/api/repos/:owner/:repo/issues/:number/labels", async (c) => {
 
 app.delete("/api/repos/:owner/:repo/issues/:number/labels/:name", async (c) => {
   try {
-    repoOwnerAndName(c);
-    parseInt64Param(c, "number", "issue number is required", "invalid issue number");
+    const { owner, repo } = repoOwnerAndName(c);
+    const number = parseInt64Param(c, "number", "issue number is required", "invalid issue number");
     const labelName = (c.req.param("name") ?? "").trim();
     if (labelName === "") throw badRequest("label name is required");
-    throw internal("not implemented");
+    const actor = getUser(c) ?? null;
+
+    await getServices().label.removeIssueLabelByName(actor, owner, repo, number, labelName);
+    return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);
   }

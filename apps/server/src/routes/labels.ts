@@ -12,6 +12,7 @@ import {
   parseInt64Param,
   repoOwnerAndName,
 } from "@jjhub/sdk";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Response type — mirrors Go db.Label JSON shape
@@ -74,20 +75,6 @@ interface LabelRouteService {
   removeIssueLabelByName(actor: AuthUser | null, owner: string, repo: string, number: number, labelName: string): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// Stubbed service — throws APIError("not implemented") for all calls.
-// ---------------------------------------------------------------------------
-
-const stubbedService: LabelRouteService = {
-  async createLabel() { throw internal("not implemented"); },
-  async listLabels() { throw internal("not implemented"); },
-  async getLabel() { throw internal("not implemented"); },
-  async updateLabel() { throw internal("not implemented"); },
-  async deleteLabel() { throw internal("not implemented"); },
-  async addLabelsToIssue() { throw internal("not implemented"); },
-  async listIssueLabels() { throw internal("not implemented"); },
-  async removeIssueLabelByName() { throw internal("not implemented"); },
-};
 
 // ---------------------------------------------------------------------------
 // JSON body decode helper — matches Go's decodeJSONBody
@@ -106,7 +93,11 @@ async function decodeJSONBody<T>(c: { req: { json: () => Promise<T> } }): Promis
 // ---------------------------------------------------------------------------
 
 const app = new Hono();
-const service = stubbedService;
+
+/** Lazily resolve the label service from the registry on each request. */
+function service(): LabelRouteService {
+  return getServices().label;
+}
 
 // POST /api/repos/:owner/:repo/labels — PostRepoLabel (CreateLabel)
 app.post("/api/repos/:owner/:repo/labels", async (c) => {
@@ -115,7 +106,7 @@ app.post("/api/repos/:owner/:repo/labels", async (c) => {
     const { owner, repo } = repoOwnerAndName(c);
     const body = await decodeJSONBody<CreateLabelRequestBody>(c);
 
-    const created = await service.createLabel(actor, owner, repo, {
+    const created = await service().createLabel(actor, owner, repo, {
       name: body.name,
       color: body.color,
       description: body.description,
@@ -134,7 +125,7 @@ app.get("/api/repos/:owner/:repo/labels", async (c) => {
     const page = cursorToPage(cursor, limit);
     const viewer = getUser(c) ?? null;
 
-    const { items, total } = await service.listLabels(viewer, owner, repo, page, limit);
+    const { items, total } = await service().listLabels(viewer, owner, repo, page, limit);
     setPaginationHeaders(c, total);
     return writeJSON(c, 200, items);
   } catch (err) {
@@ -149,7 +140,7 @@ app.get("/api/repos/:owner/:repo/labels/:id", async (c) => {
     const id = parseInt64Param(c, "id", "label id is required", "invalid label id");
     const viewer = getUser(c) ?? null;
 
-    const label = await service.getLabel(viewer, owner, repo, id);
+    const label = await service().getLabel(viewer, owner, repo, id);
     return writeJSON(c, 200, label);
   } catch (err) {
     return writeRouteError(c, err);
@@ -164,7 +155,7 @@ app.patch("/api/repos/:owner/:repo/labels/:id", async (c) => {
     const id = parseInt64Param(c, "id", "label id is required", "invalid label id");
     const body = await decodeJSONBody<UpdateLabelRequestBody>(c);
 
-    const updated = await service.updateLabel(actor, owner, repo, id, {
+    const updated = await service().updateLabel(actor, owner, repo, id, {
       name: body.name,
       color: body.color,
       description: body.description,
@@ -182,7 +173,7 @@ app.delete("/api/repos/:owner/:repo/labels/:id", async (c) => {
     const { owner, repo } = repoOwnerAndName(c);
     const id = parseInt64Param(c, "id", "label id is required", "invalid label id");
 
-    await service.deleteLabel(actor, owner, repo, id);
+    await service().deleteLabel(actor, owner, repo, id);
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);

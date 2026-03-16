@@ -12,6 +12,7 @@ import {
   parseInt64Param,
   repoOwnerAndName,
 } from "@jjhub/sdk";
+import { getServices } from "../services";
 
 // ---------------------------------------------------------------------------
 // Response type — mirrors Go db.Milestone JSON shape
@@ -75,17 +76,6 @@ interface MilestoneRouteService {
   deleteMilestone(actor: AuthUser | null, owner: string, repo: string, id: number): Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// Stubbed service — throws APIError("not implemented") for all calls.
-// ---------------------------------------------------------------------------
-
-const stubbedService: MilestoneRouteService = {
-  async createMilestone() { throw internal("not implemented"); },
-  async listMilestones() { throw internal("not implemented"); },
-  async getMilestone() { throw internal("not implemented"); },
-  async updateMilestone() { throw internal("not implemented"); },
-  async deleteMilestone() { throw internal("not implemented"); },
-};
 
 // ---------------------------------------------------------------------------
 // JSON body decode helper — matches Go's decodeJSONBody
@@ -104,7 +94,11 @@ async function decodeJSONBody<T>(c: { req: { json: () => Promise<T> } }): Promis
 // ---------------------------------------------------------------------------
 
 const app = new Hono();
-const service = stubbedService;
+
+/** Lazily resolve the milestone service from the registry on each request. */
+function service(): MilestoneRouteService {
+  return getServices().milestone;
+}
 
 // POST /api/repos/:owner/:repo/milestones — PostMilestone (CreateMilestone)
 app.post("/api/repos/:owner/:repo/milestones", async (c) => {
@@ -113,7 +107,7 @@ app.post("/api/repos/:owner/:repo/milestones", async (c) => {
     const { owner, repo } = repoOwnerAndName(c);
     const body = await decodeJSONBody<CreateMilestoneRequestBody>(c);
 
-    const created = await service.createMilestone(actor, owner, repo, {
+    const created = await service().createMilestone(actor, owner, repo, {
       title: body.title,
       description: body.description,
       due_date: body.due_date,
@@ -133,7 +127,7 @@ app.get("/api/repos/:owner/:repo/milestones", async (c) => {
     const state = (c.req.query("state") ?? "").trim();
     const viewer = getUser(c) ?? null;
 
-    const { items, total } = await service.listMilestones(viewer, owner, repo, page, limit, state);
+    const { items, total } = await service().listMilestones(viewer, owner, repo, page, limit, state);
     setPaginationHeaders(c, total);
     return writeJSON(c, 200, items);
   } catch (err) {
@@ -148,7 +142,7 @@ app.get("/api/repos/:owner/:repo/milestones/:id", async (c) => {
     const id = parseInt64Param(c, "id", "milestone id is required", "invalid milestone id");
     const viewer = getUser(c) ?? null;
 
-    const milestone = await service.getMilestone(viewer, owner, repo, id);
+    const milestone = await service().getMilestone(viewer, owner, repo, id);
     return writeJSON(c, 200, milestone);
   } catch (err) {
     return writeRouteError(c, err);
@@ -163,7 +157,7 @@ app.patch("/api/repos/:owner/:repo/milestones/:id", async (c) => {
     const id = parseInt64Param(c, "id", "milestone id is required", "invalid milestone id");
     const body = await decodeJSONBody<UpdateMilestoneRequestBody>(c);
 
-    const updated = await service.updateMilestone(actor, owner, repo, id, {
+    const updated = await service().updateMilestone(actor, owner, repo, id, {
       title: body.title,
       description: body.description,
       state: body.state,
@@ -182,7 +176,7 @@ app.delete("/api/repos/:owner/:repo/milestones/:id", async (c) => {
     const { owner, repo } = repoOwnerAndName(c);
     const id = parseInt64Param(c, "id", "milestone id is required", "invalid milestone id");
 
-    await service.deleteMilestone(actor, owner, repo, id);
+    await service().deleteMilestone(actor, owner, repo, id);
     return c.body(null, 204);
   } catch (err) {
     return writeRouteError(c, err);

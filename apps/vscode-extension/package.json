@@ -1,0 +1,121 @@
+{
+  "name": "jjhub",
+  "displayName": "JJHub",
+  "description": "JJHub integration for Visual Studio Code — issues, landing requests, bookmarks, and sync status.",
+  "version": "0.0.1",
+  "publisher": "jjhub-ai",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "SCM Providers",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "jjhub.openDashboard",
+        "title": "JJHub: Open Dashboard",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "jjhub.createIssue",
+        "title": "JJHub: Create Issue",
+        "icon": "$(add)"
+      },
+      {
+        "command": "jjhub.search",
+        "title": "JJHub: Search",
+        "icon": "$(search)"
+      },
+      {
+        "command": "jjhub.syncNow",
+        "title": "JJHub: Sync Now",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "jjhub.openWorkspace",
+        "title": "JJHub: Open Workspace",
+        "icon": "$(folder-opened)"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "jjhub",
+          "title": "JJHub",
+          "icon": "$(git-branch)"
+        }
+      ]
+    },
+    "views": {
+      "jjhub": [
+        {
+          "id": "jjhub-issues",
+          "name": "Issues"
+        },
+        {
+          "id": "jjhub-landings",
+          "name": "Landing Requests"
+        },
+        {
+          "id": "jjhub-bookmarks",
+          "name": "Bookmarks"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "jjhub.createIssue",
+          "when": "view == jjhub-issues",
+          "group": "navigation"
+        },
+        {
+          "command": "jjhub.syncNow",
+          "when": "view == jjhub-bookmarks",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "JJHub",
+      "properties": {
+        "jjhub.daemonUrl": {
+          "type": "string",
+          "default": "http://localhost:4000",
+          "description": "URL of the JJHub daemon API."
+        },
+        "jjhub.autoStartDaemon": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically start the JJHub daemon when the extension activates."
+        },
+        "jjhub.token": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "JJHub API token (`jjhub_` prefixed). Leave empty to use the system keychain.",
+          "scope": "machine"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0",
+    "@vscode/vsce": "^2.22.0"
+  }
+}

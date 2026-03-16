@@ -108,7 +108,8 @@ function calculateNextRetry(
   if (index < 0 || index >= RETRY_SCHEDULE_MS.length) {
     return { shouldRetry: false };
   }
-  const nextRetryAt = new Date(now.getTime() + RETRY_SCHEDULE_MS[index]);
+  const delayMs = RETRY_SCHEDULE_MS[index]!;
+  const nextRetryAt = new Date(now.getTime() + delayMs);
   return { nextRetryAt, shouldRetry: true };
 }
 
@@ -254,7 +255,7 @@ async function updateTaskStatus(
   // Retry path — only if not explicitly skipping
   if (!result.skipRetry) {
     const retryResult = calculateNextRetry(task.delivery.attempts, now);
-    if (retryResult.ok) {
+    if (retryResult.shouldRetry) {
       await updateWebhookDeliveryRetry(sql, {
         id: task.delivery.id,
         status: "pending",

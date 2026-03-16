@@ -74,6 +74,17 @@ export {
 export type { WebhookWorkerOptions, WebhookTask } from "./services/webhook-worker";
 export { WorkflowService } from "./services/workflow";
 export { NotificationService } from "./services/notification";
+export { NotificationFanoutService, parseMentions } from "./services/notification-fanout";
+export type {
+  IssueAssignedEvent,
+  IssueCommentedEvent,
+  LRReviewedEvent,
+  LRCommentedEvent,
+  LRChangesPushedEvent,
+  WorkspaceStatusChangedEvent,
+  WorkspaceSharedEvent,
+  WorkflowRunCompletedEvent,
+} from "./services/notification-fanout";
 export { SecretService } from "./services/secret";
 export { ReleaseService } from "./services/release";
 export { OAuth2Service } from "./services/oauth2";

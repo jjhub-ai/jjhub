@@ -355,16 +355,15 @@ export class CleanupScheduler {
     const result: SweepResult = { job: "stale-workflow-runs", errors: [] };
 
     try {
-      const staleInterval = `${this.config.staleWorkflowRunSecs} seconds`;
       const updateResult = await this.sql.unsafe(
         `UPDATE workflow_runs
          SET status = 'failure',
              completed_at = NOW(),
              updated_at = NOW()
          WHERE status = 'running'
-           AND updated_at < NOW() - INTERVAL '${staleInterval}'
+           AND updated_at < NOW() - make_interval(secs => $1::int)
          RETURNING id`,
-        []
+        [this.config.staleWorkflowRunSecs]
       ).values();
 
       if (updateResult.length > 0) {

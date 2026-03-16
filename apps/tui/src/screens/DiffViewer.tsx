@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { Box as InkBox, Text as InkText, useInput, useStdout } from "ink";
-import { Box, Text, Heading, Spinner, StatusBar } from "../primitives";
+import { Box, Text, Heading, Spinner, StatusBar, ErrorBox, EmptyState } from "../primitives";
 import { useDiff, type DiffFile, type DiffHunkLine, type DiffHunk } from "../hooks/useDiff";
+import { changeTypeColor, theme } from "../utils";
 
 export interface DiffViewerProps {
   owner: string;
@@ -28,17 +29,6 @@ type RenderedLine = {
   rightType?: "add" | "context" | "empty";
   fileIndex?: number;
 };
-
-// --- Change type badge color ---
-
-function changeTypeColor(ct: string): string {
-  switch (ct) {
-    case "A": return "green";
-    case "D": return "red";
-    case "R": return "yellow";
-    default: return "blue";
-  }
-}
 
 function changeTypeLabel(ct: string): string {
   switch (ct) {
@@ -410,7 +400,7 @@ export function DiffViewer({ owner, name, changeId, lrNumber, onNavigate }: Diff
   if (loading) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
-        <Spinner label="Loading diff..." />
+        <Spinner label={`Loading diff for ${changeId ? `change ${changeId}` : `landing !${lrNumber}`}...`} />
       </Box>
     );
   }
@@ -418,7 +408,7 @@ export function DiffViewer({ owner, name, changeId, lrNumber, onNavigate }: Diff
   if (error) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
-        <Text color="red">Error: {error.message}</Text>
+        <ErrorBox message={error.message} hint="Press q to go back." />
       </Box>
     );
   }
@@ -426,7 +416,10 @@ export function DiffViewer({ owner, name, changeId, lrNumber, onNavigate }: Diff
   if (files.length === 0) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
-        <Text dimColor>No changes in this diff.</Text>
+        <EmptyState
+          message="No changes in this diff."
+          hint="The diff is empty -- there are no file modifications."
+        />
         <StatusBar
           bindings={[{ key: "q", label: "back" }]}
           left={changeId ? `change ${changeId}` : `landing !${lrNumber}`}

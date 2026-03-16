@@ -1,40 +1,10 @@
 import React, { useState, useMemo } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, List, Spinner, StatusBar, type ListItem } from "../primitives";
+import { Box, Text, Heading, List, Spinner, StatusBar, ErrorBox, type ListItem } from "../primitives";
 import { useLandings } from "../hooks";
+import { formatTimeAgo, lrStateColor, theme } from "../utils";
 
 type LRState = "open" | "merged" | "closed" | "all";
-
-function stateColor(state: string): string {
-  switch (state) {
-    case "open":
-      return "green";
-    case "merged":
-      return "cyan";
-    case "closed":
-      return "red";
-    case "draft":
-      return "gray";
-    default:
-      return "white";
-  }
-}
-
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w ago`;
-}
 
 export interface LandingListProps {
   owner: string;
@@ -60,7 +30,7 @@ export function LandingList({ owner, name, onNavigate }: LandingListProps) {
         key: String(lr.number),
         label: `!${lr.number} ${lr.title}`,
         description: `${lr.target_bookmark} (${lr.stack_size} changes) by ${lr.author.login} ${formatTimeAgo(lr.created_at)}`,
-        badge: { text: lr.state, color: stateColor(lr.state) },
+        badge: { text: lr.state, color: lrStateColor(lr.state) },
       })),
     [filtered],
   );
@@ -75,15 +45,13 @@ export function LandingList({ owner, name, onNavigate }: LandingListProps) {
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1} gap={2}>
-        <Heading>
-          Landing Requests - {owner}/{name}
-        </Heading>
+        <Heading>Landing Requests</Heading>
         <Box gap={1}>
           {(["open", "merged", "closed", "all"] as const).map((f) => (
             <Text
               key={f}
               bold={filter === f}
-              color={filter === f ? "cyan" : "gray"}
+              color={filter === f ? theme.accent : theme.muted}
             >
               [{f}]
             </Text>
@@ -95,10 +63,12 @@ export function LandingList({ owner, name, onNavigate }: LandingListProps) {
         {loading ? (
           <Spinner label="Loading landing requests..." />
         ) : error ? (
-          <Text color="red">Error: {error.message}</Text>
+          <ErrorBox message={error.message} hint="Press q to go back." />
         ) : (
           <List
             items={items}
+            emptyMessage={`No ${filter === "all" ? "" : filter + " "}landing requests found.`}
+            emptyHint="Create a landing request from the CLI with 'jjhub lr create'."
             onSelect={(item) => {
               onNavigate("landing-detail", {
                 owner,

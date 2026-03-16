@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Input, List, Spinner, StatusBar, type ListItem } from "../primitives";
+import { Box, Text, Heading, Input, List, Spinner, StatusBar, ErrorBox, EmptyState, type ListItem } from "../primitives";
 import { useSearch } from "../hooks";
+import { theme } from "../utils";
 
 // Commands available in the palette when user types "/"
 const PALETTE_COMMANDS: { key: string; label: string; description: string }[] = [
@@ -33,7 +34,7 @@ export function Search({ onNavigate }: SearchProps) {
       key: cmd.key,
       label: cmd.label,
       description: cmd.description,
-      badge: { text: "command", color: "magenta" },
+      badge: { text: "command", color: theme.agent },
     }));
   }, [query, isCommandMode]);
 
@@ -43,15 +44,13 @@ export function Search({ onNavigate }: SearchProps) {
       key: `${repo.owner}/${repo.name}`,
       label: repo.full_name,
       description: repo.description || "",
-      badge: { text: "repo", color: "blue" },
+      badge: { text: "repo", color: theme.info },
     }));
   }, [results]);
 
   const handleCommandSelect = (item: ListItem) => {
     switch (item.key) {
       case "/agent":
-        // Navigate to agent sessions for the most recent repo context,
-        // or prompt user to navigate to a repo first
         onNavigate("agent-sessions", {});
         break;
       case "/agent new":
@@ -91,7 +90,6 @@ export function Search({ onNavigate }: SearchProps) {
           active={isInputMode}
           onSubmit={() => {
             if (isCommandMode) {
-              // Try to match exactly
               const match = PALETTE_COMMANDS.find(
                 (cmd) => cmd.key === query.toLowerCase().trim(),
               );
@@ -115,7 +113,7 @@ export function Search({ onNavigate }: SearchProps) {
       <Box flexDirection="column" flexGrow={1} paddingX={1} paddingY={1}>
         {isCommandMode ? (
           commandItems.length === 0 ? (
-            <Text dimColor>No matching commands</Text>
+            <EmptyState message="No matching commands." hint="Try a different command." />
           ) : (
             <List
               items={commandItems}
@@ -124,13 +122,19 @@ export function Search({ onNavigate }: SearchProps) {
             />
           )
         ) : !submittedQuery ? (
-          <Text dimColor>Type a query and press Enter to search</Text>
+          <EmptyState
+            message="Type a query and press Enter to search."
+            hint="You can also type / to access commands."
+          />
         ) : loading ? (
-          <Spinner label="Searching..." />
+          <Spinner label={`Searching for "${submittedQuery}"...`} />
         ) : error ? (
-          <Text color="red">Error: {error.message}</Text>
+          <ErrorBox message={error.message} hint="Try a different search query." />
         ) : searchItems.length === 0 ? (
-          <Text dimColor>No results for "{submittedQuery}"</Text>
+          <EmptyState
+            message={`No results for "${submittedQuery}".`}
+            hint="Try a different search term."
+          />
         ) : (
           <List
             items={searchItems}

@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Muted, Input, Spinner, StatusBar } from "../primitives";
+import { Box, Text, Heading, Muted, Input, Spinner, StatusBar, ErrorBox } from "../primitives";
+import { theme } from "../utils";
 
 export interface IssueCreateProps {
   owner: string;
@@ -53,7 +54,6 @@ export function IssueCreate({ owner, name, initialTitle, onNavigate }: IssueCrea
       const created = await response.json();
       setSuccess(true);
 
-      // Navigate to the created issue after a brief pause
       setTimeout(() => {
         onNavigate("issue-detail", {
           owner,
@@ -71,13 +71,11 @@ export function IssueCreate({ owner, name, initialTitle, onNavigate }: IssueCrea
   // Global keybindings for the form
   useInput(
     (input, key) => {
-      // Ctrl+Enter submits
       if (key.return && key.ctrl) {
         handleSubmit();
         return;
       }
 
-      // Tab switches between fields
       if (key.tab) {
         setFocus((f) => (f === "title" ? "body" : "title"));
         return;
@@ -90,7 +88,7 @@ export function IssueCreate({ owner, name, initialTitle, onNavigate }: IssueCrea
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={1} paddingY={1}>
         <Box gap={1}>
-          <Text color="green" bold>Issue created successfully!</Text>
+          <Text color={theme.success} bold>Issue created successfully!</Text>
         </Box>
         <Muted>Redirecting to issue...</Muted>
       </Box>
@@ -100,24 +98,22 @@ export function IssueCreate({ owner, name, initialTitle, onNavigate }: IssueCrea
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1}>
-        <Heading>
-          New Issue - {owner}/{name}
-        </Heading>
+        <Heading>New Issue</Heading>
       </Box>
 
       {error && (
         <Box paddingX={1}>
-          <Text color="red">Error: {error}</Text>
+          <ErrorBox message={error} hint="Fix the error and try again." />
         </Box>
       )}
 
       {/* Title field */}
       <Box flexDirection="column" paddingX={1} paddingY={1}>
         <Box gap={1}>
-          <Text bold color={focus === "title" ? "cyan" : "white"}>
+          <Text bold color={focus === "title" ? theme.accent : "white"}>
             Title
           </Text>
-          <Text color="red">*</Text>
+          <Text color={theme.error}>*</Text>
           {focus === "title" && <Text dimColor>(editing)</Text>}
         </Box>
         <Input
@@ -133,7 +129,7 @@ export function IssueCreate({ owner, name, initialTitle, onNavigate }: IssueCrea
       {/* Body field */}
       <Box flexDirection="column" paddingX={1} paddingY={1}>
         <Box gap={1}>
-          <Text bold color={focus === "body" ? "cyan" : "white"}>
+          <Text bold color={focus === "body" ? theme.accent : "white"}>
             Description
           </Text>
           <Muted>(optional)</Muted>
@@ -156,7 +152,7 @@ export function IssueCreate({ owner, name, initialTitle, onNavigate }: IssueCrea
           paddingX={1}
           paddingY={1}
           borderStyle="single"
-          borderColor="gray"
+          borderColor={theme.border}
         >
           <Text bold dimColor>Preview</Text>
           <Box paddingX={1}>

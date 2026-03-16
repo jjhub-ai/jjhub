@@ -1,22 +1,7 @@
 import React, { useMemo } from "react";
-import { Box, Text, Heading, List, Spinner, StatusBar, type ListItem } from "../primitives";
+import { Box, Text, Heading, List, Spinner, StatusBar, ErrorBox, type ListItem } from "../primitives";
 import { useChanges } from "../hooks";
-
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w ago`;
-}
+import { formatTimeAgo, theme } from "../utils";
 
 export interface ChangeListProps {
   owner: string;
@@ -34,9 +19,9 @@ export function ChangeList({ owner, name, onNavigate }: ChangeListProps) {
       label: `${change.change_id} ${change.description || "(empty)"}`,
       description: `by ${change.author_name} ${formatTimeAgo(change.timestamp)}`,
       badge: change.is_empty
-        ? { text: "empty", color: "gray" }
+        ? { text: "empty", color: theme.muted }
         : change.has_conflict
-          ? { text: "conflict", color: "red" }
+          ? { text: "conflict", color: theme.error }
           : undefined,
     }));
   }, [changes]);
@@ -44,19 +29,19 @@ export function ChangeList({ owner, name, onNavigate }: ChangeListProps) {
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1}>
-        <Heading>
-          Changes - {owner}/{name}
-        </Heading>
+        <Heading>Changes</Heading>
       </Box>
 
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
         {loading ? (
           <Spinner label="Loading changes..." />
         ) : error ? (
-          <Text color="red">Error: {error.message}</Text>
+          <ErrorBox message={error.message} hint="Press q to go back." />
         ) : (
           <List
             items={items}
+            emptyMessage="No changes found."
+            emptyHint="Push changes to this repository to see them here."
             onSelect={(item) => {
               onNavigate("diff", { owner, name, changeId: item.key });
             }}
@@ -67,7 +52,7 @@ export function ChangeList({ owner, name, onNavigate }: ChangeListProps) {
       <StatusBar
         bindings={[
           { key: "j/k", label: "navigate" },
-          { key: "Enter", label: "view" },
+          { key: "Enter", label: "view diff" },
           { key: "q", label: "back" },
         ]}
         left={`${changes?.length ?? 0} changes`}

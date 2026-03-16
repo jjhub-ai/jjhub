@@ -603,7 +603,7 @@ export interface CountPrivateReposByOwnerArgs {
 }
 
 export interface CountPrivateReposByOwnerRow {
-    value: string;
+    : string;
 }
 
 export async function countPrivateReposByOwner(sql: Sql, args: CountPrivateReposByOwnerArgs): Promise<CountPrivateReposByOwnerRow | null> {
@@ -613,7 +613,7 @@ export async function countPrivateReposByOwner(sql: Sql, args: CountPrivateRepos
     }
     const row = rows[0];
     return {
-        value: row[0]
+        : row[0]
     };
 }
 
@@ -656,7 +656,7 @@ export interface SumStorageBytesByOwnerArgs {
 }
 
 export interface SumStorageBytesByOwnerRow {
-    value: string;
+    : string;
 }
 
 export async function sumStorageBytesByOwner(sql: Sql, args: SumStorageBytesByOwnerArgs): Promise<SumStorageBytesByOwnerRow | null> {
@@ -666,7 +666,7 @@ export async function sumStorageBytesByOwner(sql: Sql, args: SumStorageBytesByOw
     }
     const row = rows[0];
     return {
-        value: row[0]
+        : row[0]
     };
 }
 
@@ -703,7 +703,7 @@ export interface SumWorkflowMinutesByOwnerArgs {
 }
 
 export interface SumWorkflowMinutesByOwnerRow {
-    value: string;
+    : string;
 }
 
 export async function sumWorkflowMinutesByOwner(sql: Sql, args: SumWorkflowMinutesByOwnerArgs): Promise<SumWorkflowMinutesByOwnerRow | null> {
@@ -713,7 +713,7 @@ export async function sumWorkflowMinutesByOwner(sql: Sql, args: SumWorkflowMinut
     }
     const row = rows[0];
     return {
-        value: row[0]
+        : row[0]
     };
 }
 
@@ -745,7 +745,7 @@ export interface CountAgentRunsByOwnerArgs {
 }
 
 export interface CountAgentRunsByOwnerRow {
-    value: string;
+    : string;
 }
 
 export async function countAgentRunsByOwner(sql: Sql, args: CountAgentRunsByOwnerArgs): Promise<CountAgentRunsByOwnerRow | null> {
@@ -755,15 +755,12 @@ export async function countAgentRunsByOwner(sql: Sql, args: CountAgentRunsByOwne
     }
     const row = rows[0];
     return {
-        value: row[0]
+        : row[0]
     };
 }
 
-// ========================
-// Credit ledger & balances
-// ========================
-
 export const getCreditBalanceQuery = `-- name: GetCreditBalance :one
+
 SELECT billing_account_id, balance_cents, last_grant_at, updated_at
 FROM billing_credit_balances
 WHERE billing_account_id = $1`;
@@ -839,7 +836,15 @@ INSERT INTO billing_credit_ledger (
     metric_key,
     idempotency_key
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7
+)
 RETURNING id, billing_account_id, amount_cents, balance_after_cents, reason, category, metric_key, idempotency_key, created_at`;
 
 export interface InsertCreditLedgerEntryArgs {
@@ -888,13 +893,13 @@ SELECT id, billing_account_id, amount_cents, balance_after_cents, reason, catego
 FROM billing_credit_ledger
 WHERE billing_account_id = $1
 ORDER BY created_at DESC
-LIMIT $2::bigint
-OFFSET $3::bigint`;
+LIMIT $3::bigint
+OFFSET $2::bigint`;
 
 export interface ListCreditLedgerByAccountArgs {
     billingAccountId: string;
-    pageSize: string;
     pageOffset: string;
+    pageSize: string;
 }
 
 export interface ListCreditLedgerByAccountRow {
@@ -910,7 +915,7 @@ export interface ListCreditLedgerByAccountRow {
 }
 
 export async function listCreditLedgerByAccount(sql: Sql, args: ListCreditLedgerByAccountArgs): Promise<ListCreditLedgerByAccountRow[]> {
-    return (await sql.unsafe(listCreditLedgerByAccountQuery, [args.billingAccountId, args.pageSize, args.pageOffset]).values()).map(row => ({
+    return (await sql.unsafe(listCreditLedgerByAccountQuery, [args.billingAccountId, args.pageOffset, args.pageSize]).values()).map(row => ({
         id: row[0],
         billingAccountId: row[1],
         amountCents: row[2],
@@ -933,7 +938,7 @@ export interface CountCreditLedgerByAccountArgs {
 }
 
 export interface CountCreditLedgerByAccountRow {
-    value: string;
+    : string;
 }
 
 export async function countCreditLedgerByAccount(sql: Sql, args: CountCreditLedgerByAccountArgs): Promise<CountCreditLedgerByAccountRow | null> {
@@ -943,7 +948,7 @@ export async function countCreditLedgerByAccount(sql: Sql, args: CountCreditLedg
     }
     const row = rows[0];
     return {
-        value: row[0]
+        : row[0]
     };
 }
 
@@ -1088,7 +1093,18 @@ INSERT INTO billing_usage_counters (
     last_reported_meter_event_id,
     last_synced_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, 0, '', NOW())
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    0,
+    '',
+    NOW()
+)
 ON CONFLICT (owner_type, owner_id, metric_key, period_start, period_end) DO UPDATE
 SET consumed_quantity = billing_usage_counters.consumed_quantity + $7,
     updated_at = NOW()

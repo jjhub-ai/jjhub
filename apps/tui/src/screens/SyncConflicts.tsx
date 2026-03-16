@@ -1,37 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Muted, List, Spinner, StatusBar, type ListItem } from "../primitives";
+import { Box, Text, Heading, List, Spinner, StatusBar, ErrorBox, EmptyState, type ListItem } from "../primitives";
 import { useConflicts, type SyncConflict } from "../hooks";
-
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-function methodColor(method: string): string {
-  switch (method.toUpperCase()) {
-    case "GET":
-      return "green";
-    case "POST":
-      return "yellow";
-    case "PUT":
-    case "PATCH":
-      return "blue";
-    case "DELETE":
-      return "red";
-    default:
-      return "white";
-  }
-}
+import { formatTimeAgo, methodColor, theme } from "../utils";
 
 export interface SyncConflictsProps {
   onNavigate: (screen: string, params?: Record<string, string>) => void;
@@ -58,7 +29,6 @@ export function SyncConflicts({ onNavigate }: SyncConflictsProps) {
 
   useInput((input) => {
     if (viewingDetail) {
-      // In detail view, only q/escape goes back (handled globally for escape)
       if (input === "q") {
         setViewingDetail(null);
       }
@@ -69,7 +39,6 @@ export function SyncConflicts({ onNavigate }: SyncConflictsProps) {
       setActionMessage(`Resolving conflict: ${selectedConflict.path}...`);
       resolveConflict(selectedConflict.id).then(() => {
         setActionMessage("Conflict resolved (accepted server value)");
-        // Reset selected index if needed
         setSelectedIndex((i) => Math.min(i, Math.max(0, conflicts.length - 2)));
         setTimeout(() => setActionMessage(null), 2000);
       });
@@ -114,22 +83,21 @@ export function SyncConflicts({ onNavigate }: SyncConflictsProps) {
 
           <Box gap={1}>
             <Text dimColor>Error:</Text>
-            <Text color="red">{viewingDetail.error}</Text>
+            <Text color={theme.error}>{viewingDetail.error}</Text>
           </Box>
 
           <Box gap={1}>
             <Text dimColor>Created:</Text>
-            <Text>{viewingDetail.created_at}</Text>
+            <Text>{formatTimeAgo(viewingDetail.created_at)}</Text>
           </Box>
 
           <Box
             flexDirection="column"
-            marginTop={1}
             borderStyle="single"
-            borderColor="yellow"
+            borderColor={theme.warning}
             padding={1}
           >
-            <Text bold color="yellow">
+            <Text bold color={theme.warning}>
               Local Value
             </Text>
             <Text wrap="wrap">
@@ -140,10 +108,10 @@ export function SyncConflicts({ onNavigate }: SyncConflictsProps) {
           <Box
             flexDirection="column"
             borderStyle="single"
-            borderColor="cyan"
+            borderColor={theme.info}
             padding={1}
           >
-            <Text bold color="cyan">
+            <Text bold color={theme.info}>
               Server Value
             </Text>
             <Text wrap="wrap">
@@ -165,20 +133,20 @@ export function SyncConflicts({ onNavigate }: SyncConflictsProps) {
       <Box paddingX={1} gap={2}>
         <Heading>Sync Conflicts</Heading>
         {actionMessage && (
-          <Text color="yellow">{actionMessage}</Text>
+          <Text color={theme.warning}>{actionMessage}</Text>
         )}
       </Box>
 
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
         {loading ? (
-          <Spinner label="Loading conflicts..." />
+          <Spinner label="Loading sync conflicts..." />
         ) : error ? (
-          <Text color="red">Error: {error.message}</Text>
+          <ErrorBox message={error.message} hint="Press q to go back." />
         ) : conflicts.length === 0 ? (
-          <Box flexDirection="column" paddingY={1}>
-            <Text color="green">No sync conflicts</Text>
-            <Muted>All changes are synchronized</Muted>
-          </Box>
+          <EmptyState
+            message="No sync conflicts. All changes are synchronized."
+            icon="\u2714"
+          />
         ) : (
           <List
             items={items}
@@ -196,9 +164,9 @@ export function SyncConflicts({ onNavigate }: SyncConflictsProps) {
       <StatusBar
         bindings={[
           { key: "j/k", label: "navigate" },
-          { key: "r", label: "resolve (accept server)" },
+          { key: "r", label: "resolve" },
           { key: "t", label: "retry" },
-          { key: "d", label: "view details" },
+          { key: "d", label: "details" },
           { key: "q", label: "back" },
         ]}
         left={`${conflicts.length} conflict${conflicts.length !== 1 ? "s" : ""}`}

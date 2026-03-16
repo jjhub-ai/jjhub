@@ -1,34 +1,8 @@
-import React from "react";
-import { Box, Text, Heading, Label, Muted, ScrollView, Spinner, StatusBar } from "../primitives";
+import React, { useState } from "react";
+import { useInput } from "ink";
+import { Box, Text, Heading, Label, Muted, ScrollView, Spinner, StatusBar, ErrorBox } from "../primitives";
 import { useIssueDetail } from "../hooks";
-
-function labelColor(label: string): string {
-  const colors: Record<string, string> = {
-    bug: "red",
-    enhancement: "green",
-    auth: "yellow",
-    critical: "redBright",
-    cli: "blue",
-    runner: "magenta",
-  };
-  return colors[label] ?? "white";
-}
-
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w ago`;
-}
+import { formatTimeAgo, labelColor, theme, copyToClipboard } from "../utils";
 
 export interface IssueDetailProps {
   owner: string;
@@ -43,11 +17,22 @@ export function IssueDetail({ owner, name, issueId, onNavigate }: IssueDetailPro
     { owner, repo: name },
     issueNumber,
   );
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
+
+  // Clipboard support: 'y' copies issue URL
+  useInput((input) => {
+    if (input === "y" && issue) {
+      const url = `https://jjhub.tech/${owner}/${name}/issues/${issueId}`;
+      const ok = copyToClipboard(url);
+      setCopyFeedback(ok ? "Copied URL!" : "Failed to copy");
+      setTimeout(() => setCopyFeedback(null), 2000);
+    }
+  });
 
   if (loading) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
-        <Spinner label="Loading issue..." />
+        <Spinner label={`Loading issue #${issueId}...`} />
       </Box>
     );
   }
@@ -55,9 +40,11 @@ export function IssueDetail({ owner, name, issueId, onNavigate }: IssueDetailPro
   if (error || !issue) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
-        <Text color="red">
-          {error ? `Error: ${error.message}` : "Issue not found"}
-        </Text>
+        <ErrorBox
+          title="Issue Error"
+          message={error ? error.message : "Issue not found"}
+          hint="Press q to go back."
+        />
       </Box>
     );
   }
@@ -65,18 +52,21 @@ export function IssueDetail({ owner, name, issueId, onNavigate }: IssueDetailPro
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1} gap={1}>
-        <Text color="gray">#{issue.number}</Text>
+        <Text dimColor>#{issue.number}</Text>
         <Heading>{issue.title}</Heading>
-        <Text color={issue.state === "open" ? "green" : "red"} bold>
+        <Text color={issue.state === "open" ? theme.open : theme.closed} bold>
           [{issue.state}]
         </Text>
+        {copyFeedback && (
+          <Text color={theme.success} bold>{copyFeedback}</Text>
+        )}
       </Box>
 
       <ScrollView maxVisible={20}>
         {/* Metadata */}
         <Box flexDirection="column" paddingX={2} paddingY={1} key="meta">
           <Box flexDirection="row" gap={4}>
-            <Label label="Author" value={issue.author.login} valueColor="cyan" />
+            <Label label="Author" value={issue.author.login} valueColor={theme.info} />
             <Label label="Created" value={formatTimeAgo(issue.created_at)} />
           </Box>
           <Box gap={1}>
@@ -95,7 +85,7 @@ export function IssueDetail({ owner, name, issueId, onNavigate }: IssueDetailPro
             <Box gap={1}>
               <Text dimColor>Assignees:</Text>
               {issue.assignees.map((a) => (
-                <Text key={a.login} color="cyan">
+                <Text key={a.login} color={theme.info}>
                   @{a.login}
                 </Text>
               ))}
@@ -109,7 +99,7 @@ export function IssueDetail({ owner, name, issueId, onNavigate }: IssueDetailPro
           flexDirection="column"
           paddingX={2}
           borderStyle="single"
-          borderColor="gray"
+          borderColor={theme.border}
         >
           <Text bold>Description</Text>
           <Text>{issue.body || "(no description)"}</Text>
@@ -123,6 +113,11 @@ export function IssueDetail({ owner, name, issueId, onNavigate }: IssueDetailPro
         </Box>
 
         {/* Comments */}
+        {comments.length === 0 && (
+          <Box key="no-comments" paddingX={2}>
+            <Text dimColor>No comments yet.</Text>
+          </Box>
+        )}
         {comments.map((comment) => (
           <Box
             key={`comment-${comment.id}`}
@@ -130,10 +125,10 @@ export function IssueDetail({ owner, name, issueId, onNavigate }: IssueDetailPro
             paddingX={2}
             paddingY={0}
             borderStyle="single"
-            borderColor="gray"
+            borderColor={theme.border}
           >
             <Box gap={2}>
-              <Text color="cyan" bold>
+              <Text color={theme.info} bold>
                 @{comment.commenter}
               </Text>
               <Muted>{formatTimeAgo(comment.created_at)}</Muted>
@@ -146,6 +141,7 @@ export function IssueDetail({ owner, name, issueId, onNavigate }: IssueDetailPro
       <StatusBar
         bindings={[
           { key: "j/k", label: "scroll" },
+          { key: "y", label: "copy URL" },
           { key: "q", label: "back" },
         ]}
         left={`${owner}/${name} #${issueId}`}

@@ -170,3 +170,16 @@ export type {
   FlushResult,
   RemoteCaller,
 } from "./services/sync-queue";
+export { IdRemapService } from "./services/id-remap";
+export type {
+  RemapResourceType,
+  IdRemapEntry,
+} from "./services/id-remap";
+
+// Auto-push (private branch sync for daemon)
+export { AutoPushService, createAutoPushService } from "./services/auto-push";
+export type {
+  AutoPushConfig,
+  AutoPushEventType,
+  AutoPushEvent,
+} from "./services/auto-push";

@@ -1,5 +1,6 @@
 import { BrowserWindow, Tray, Utils } from "electrobun/bun";
 import { SyncStatus, getSyncStatusLabel, startSyncMonitor, stopSyncMonitor, forceSyncNow } from "../sync-status";
+import { configureTransport } from "@jjhub/ui-core/api/transport";
 
 // ---------------------------------------------------------------------------
 // 1. Configure the daemon to run in PGLite mode on a fixed port
@@ -28,6 +29,9 @@ async function startDaemon(): Promise<void> {
     }
 
     console.log(`JJHub daemon running at ${DAEMON_URL}`);
+
+    // Configure the UI transport to use IPC (direct in-process calls)
+    configureTransport({ mode: "ipc" });
   } catch (err) {
     console.error("Failed to start JJHub daemon:", err);
   }
@@ -37,6 +41,9 @@ async function startDaemon(): Promise<void> {
 // 3. Create the main application window
 // ---------------------------------------------------------------------------
 let mainWindow: InstanceType<typeof BrowserWindow> | null = null;
+
+// Preload script injected into every webview to signal IPC mode to the SolidJS app
+const PRELOAD_SCRIPT = `window.__JJHUB_TRANSPORT = "ipc";`;
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -48,6 +55,7 @@ function createWindow(): void {
       x: 100,
       y: 100,
     },
+    preload: PRELOAD_SCRIPT,
   });
 }
 

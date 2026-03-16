@@ -35,6 +35,7 @@ import admin from "./routes/admin";
 import oauth2 from "./routes/oauth2";
 import lfs from "./routes/lfs";
 import integrations from "./routes/integrations";
+import daemon from "./routes/daemon";
 
 // ---------------------------------------------------------------------------
 // Initialize database connection and service registry
@@ -97,6 +98,7 @@ app.route("/", admin);
 app.route("/", oauth2);
 app.route("/", lfs);
 app.route("/", integrations);
+app.route("/", daemon);
 
 const port = parseInt(process.env.JJHUB_PORT ?? "3000");
 

@@ -9,6 +9,8 @@
 
 import type { Sql } from "postgres";
 
+import { IdRemapService } from "./id-remap";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -75,9 +77,18 @@ CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON _sync_queue (status, created
 export class SyncQueue {
   private sql: Sql;
   private initialized = false;
+  private remapper: IdRemapService;
 
   constructor(sql: Sql) {
     this.sql = sql;
+    this.remapper = new IdRemapService(sql);
+  }
+
+  /**
+   * Get the underlying IdRemapService for direct access.
+   */
+  getRemapper(): IdRemapService {
+    return this.remapper;
   }
 
   /**
@@ -86,6 +97,7 @@ export class SyncQueue {
   async init(): Promise<void> {
     if (this.initialized) return;
     await this.sql.unsafe(SYNC_QUEUE_DDL);
+    await this.remapper.init();
     this.initialized = true;
   }
 
@@ -134,7 +146,19 @@ export class SyncQueue {
 
     for (const item of pending) {
       try {
-        const response = await caller(item.method, item.path, item.body);
+        // Resolve any local IDs in the path and body before sending.
+        // This handles cross-references: e.g. a comment referencing a
+        // locally-created issue whose server ID is now known.
+        const resolved = await this.remapper.resolveBodyAndPath(
+          item.path,
+          item.body,
+        );
+
+        const response = await caller(
+          item.method,
+          resolved.path,
+          resolved.body,
+        );
 
         if (response.status >= 200 && response.status < 300) {
           // Extract server-assigned ID for remapping if the response has one
@@ -146,6 +170,14 @@ export class SyncQueue {
           ) {
             remoteId = String((response.body as Record<string, unknown>).id);
           }
+
+          // If this queue item tracked a local ID and the server returned a
+          // remote ID, cascade the remap across all local tables and rewrite
+          // any remaining pending queue items that reference this local ID.
+          if (item.localId && remoteId) {
+            await this.remapper.remapAfterSync(item.localId, remoteId);
+          }
+
           await this.markSynced(item.id, remoteId);
           result.synced++;
         } else if (response.status === 409) {

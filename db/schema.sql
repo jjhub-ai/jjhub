@@ -1739,3 +1739,15 @@ CREATE TABLE IF NOT EXISTS _sync_queue (
 );
 
 CREATE INDEX idx_sync_queue_status ON _sync_queue (status, created_at);
+
+-- ID remap table for local-first sync (local UUID → server-assigned ID)
+CREATE TABLE IF NOT EXISTS _id_remap (
+    local_id TEXT PRIMARY KEY,
+    remote_id TEXT,
+    resource_type TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    remapped_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_id_remap_resource_type ON _id_remap (resource_type);
+CREATE INDEX idx_id_remap_remote_id ON _id_remap (remote_id) WHERE remote_id IS NOT NULL;

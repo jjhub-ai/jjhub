@@ -11,6 +11,7 @@
   "dependencies": {
     "@jjhub/server": "workspace:*",
     "@jjhub/sdk": "workspace:*",
+    "@jjhub/ui-core": "workspace:*",
     "electrobun": "latest"
   }
 }

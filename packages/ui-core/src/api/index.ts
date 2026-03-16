@@ -57,4 +57,12 @@ export {
     type ApiClientConfig,
 } from "./client";
 
+export {
+    configureTransport,
+    getTransportConfig,
+    transportFetch,
+    type Transport,
+    type TransportConfig,
+} from "./transport";
+
 export { normalizePersistedAgentMessage } from "./agentMessages";

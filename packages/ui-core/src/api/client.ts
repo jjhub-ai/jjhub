@@ -1,14 +1,18 @@
 /**
  * Platform-agnostic API client for JJHub.
  *
- * Works in both browser and non-browser environments (e.g. terminal UIs).
+ * Works in three environments:
+ *   - Browser: fetch() to same-origin or a remote API URL
+ *   - Terminal UI: fetch() to the full API origin
+ *   - ElectroBun desktop: IPC via transportFetch() — direct in-process calls
+ *
  * The client is configured via `configureApiClient()` which sets the base URL
- * and token provider. In a browser, the base URL can be "" (same-origin) and
- * the token can come from localStorage. In a terminal UI, the base URL is the
- * full API origin and the token comes from an env var or config file.
+ * and token provider. When a transport is configured (see transport.ts), the
+ * IPC path bypasses the network entirely.
  */
 
 import type { RepoContext } from "./types";
+import { transportFetch, getTransportConfig } from "./transport";
 
 export type ApiClientConfig = {
     /**
@@ -62,10 +66,21 @@ function buildHeaders(init?: HeadersInit): Headers {
 
 /**
  * Make an authenticated API request.
+ *
+ * When the transport is set to "ipc" (ElectroBun desktop), requests bypass
+ * the network and are dispatched directly to the in-process Hono server.
  */
 export async function apiFetch(path: string, init: RequestInit = {}): Promise<Response> {
+    const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+
+    // In IPC mode, delegate to the transport layer which calls the server directly
+    if (getTransportConfig().mode === "ipc") {
+        return transportFetch(normalizedPath, init);
+    }
+
+    // HTTP mode — standard fetch with auth headers
     const headers = buildHeaders(init.headers);
-    const url = `${config.baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+    const url = `${config.baseUrl}${normalizedPath}`;
     const fetchFn = config.fetch ?? globalThis.fetch;
     return fetchFn(url, {
         ...init,

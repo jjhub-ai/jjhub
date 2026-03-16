@@ -162,3 +162,44 @@
     gap: 10px;
     margin-left: auto;
 }
+
+/* Category badges */
+.palette-category-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.palette-category-navigation {
+    background-color: rgba(59, 130, 246, 0.15);
+    color: rgb(96, 165, 250);
+}
+
+.palette-category-action {
+    background-color: rgba(168, 85, 247, 0.15);
+    color: rgb(192, 132, 252);
+}
+
+.palette-category-repo {
+    background-color: rgba(34, 197, 94, 0.15);
+    color: rgb(74, 222, 128);
+}
+
+.palette-category-sync {
+    background-color: rgba(234, 179, 8, 0.15);
+    color: rgb(250, 204, 21);
+}
+
+.palette-category-workspace {
+    background-color: rgba(6, 182, 212, 0.15);
+    color: rgb(34, 211, 238);
+}
+
+.palette-category-agent {
+    background-color: rgba(249, 115, 22, 0.15);
+    color: rgb(251, 146, 60);
+}

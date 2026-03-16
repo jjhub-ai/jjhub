@@ -11,6 +11,7 @@
     "test:e2e:compose": "docker compose -f ../../docker-compose.yml -f ../../docker-compose.ui-e2e.yml up --build --abort-on-container-exit --exit-code-from ui-e2e ui-e2e"
   },
   "dependencies": {
+    "@jjhub/ui-core": "workspace:*",
     "@git-diff-view/shiki": "^0.1.2",
     "@git-diff-view/solid": "^0.1.2",
     "@microsoft/fetch-event-source": "^2.0.1",

@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { Box as InkBox } from "ink";
-import { Box, Text, Input, StatusBar, type ListItem } from "../primitives";
+import { Box, Text, Input, StatusBar } from "../primitives";
 
 interface CommandDef {
   command: string;

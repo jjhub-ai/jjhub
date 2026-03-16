@@ -147,7 +147,7 @@ export class IdRemapService {
       [resourceType],
     );
 
-    return String(rows[0].local_id);
+    return String(rows[0]!.local_id);
   }
 
   // -----------------------------------------------------------------------
@@ -342,7 +342,7 @@ export class IdRemapService {
     );
 
     if (rows.length === 0) return null;
-    return rowToEntry(rows[0]);
+    return rowToEntry(rows[0]!);
   }
 
   /**

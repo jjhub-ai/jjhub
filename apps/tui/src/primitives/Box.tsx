@@ -7,6 +7,14 @@ export interface BoxProps {
   padding?: number;
   paddingX?: number;
   paddingY?: number;
+  paddingLeft?: number;
+  paddingRight?: number;
+  paddingTop?: number;
+  paddingBottom?: number;
+  marginTop?: number;
+  marginBottom?: number;
+  marginLeft?: number;
+  marginRight?: number;
   borderStyle?: "single" | "double" | "round" | "bold" | "classic";
   borderColor?: string;
   width?: number | string;
@@ -29,6 +37,14 @@ export function Box({
   padding,
   paddingX,
   paddingY,
+  paddingLeft,
+  paddingRight,
+  paddingTop,
+  paddingBottom,
+  marginTop,
+  marginBottom,
+  marginLeft,
+  marginRight,
   borderStyle,
   borderColor,
   width,
@@ -46,6 +62,14 @@ export function Box({
       padding={padding}
       paddingX={paddingX}
       paddingY={paddingY}
+      paddingLeft={paddingLeft}
+      paddingRight={paddingRight}
+      paddingTop={paddingTop}
+      paddingBottom={paddingBottom}
+      marginTop={marginTop}
+      marginBottom={marginBottom}
+      marginLeft={marginLeft}
+      marginRight={marginRight}
       borderStyle={borderStyle}
       borderColor={borderColor}
       width={width as number | undefined}

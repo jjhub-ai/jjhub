@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Muted, List, Spinner, StatusBar, type ListItem } from "../primitives";
+import { Box, Text, Heading, List, Spinner, StatusBar, ErrorBox, EmptyState, type ListItem } from "../primitives";
+import { formatTimeAgo, theme } from "../utils";
 
 export interface NotificationsListProps {
   onNavigate: (screen: string, params?: Record<string, string>) => void;
@@ -23,53 +24,25 @@ interface Notification {
   updated_at: string;
 }
 
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w ago`;
-}
-
 function subjectIcon(type: string): string {
   switch (type) {
-    case "issue":
-      return "#";
-    case "landing_request":
-      return "!";
-    case "change":
-      return "~";
-    case "repo":
-      return "@";
-    default:
-      return "*";
+    case "issue": return "#";
+    case "landing_request": return "!";
+    case "change": return "~";
+    case "repo": return "@";
+    default: return "*";
   }
 }
 
 function reasonLabel(reason: string): string {
   switch (reason) {
-    case "assign":
-      return "assigned";
-    case "mention":
-      return "mentioned";
-    case "review_requested":
-      return "review requested";
-    case "state_change":
-      return "state change";
-    case "comment":
-      return "comment";
-    case "subscribed":
-      return "subscribed";
-    default:
-      return reason;
+    case "assign": return "assigned";
+    case "mention": return "mentioned";
+    case "review_requested": return "review requested";
+    case "state_change": return "state change";
+    case "comment": return "comment";
+    case "subscribed": return "subscribed";
+    default: return reason;
   }
 }
 
@@ -158,8 +131,8 @@ export function NotificationsList({ onNavigate }: NotificationsListProps) {
         label: `${subjectIcon(n.subject.type)} ${n.subject.title}`,
         description: `${n.repo.full_name} - ${reasonLabel(n.reason)} ${formatTimeAgo(n.updated_at)}`,
         badge: n.unread
-          ? { text: "unread", color: "cyan" }
-          : { text: "read", color: "gray" },
+          ? { text: "unread", color: theme.info }
+          : { text: "read", color: theme.muted },
       })),
     [filtered],
   );
@@ -177,16 +150,13 @@ export function NotificationsList({ onNavigate }: NotificationsListProps) {
       const notification = filtered.find((n) => n.id === item.key);
       if (!notification) return;
 
-      // Mark as read on selection
       if (notification.unread) {
         markAsRead(notification.id);
       }
 
-      // Navigate to the related item
       const { repo, subject } = notification;
       switch (subject.type) {
         case "issue": {
-          // Extract issue number from URL
           const issueMatch = subject.url.match(/\/issues\/(\d+)/);
           if (issueMatch) {
             onNavigate("issue-detail", {
@@ -227,14 +197,14 @@ export function NotificationsList({ onNavigate }: NotificationsListProps) {
             <Text
               key={f}
               bold={filter === f}
-              color={filter === f ? "cyan" : "gray"}
+              color={filter === f ? theme.accent : theme.muted}
             >
               [{f}]
             </Text>
           ))}
         </Box>
         {unreadCount > 0 && (
-          <Text color="cyan" bold>
+          <Text color={theme.info} bold>
             {unreadCount} unread
           </Text>
         )}
@@ -245,15 +215,12 @@ export function NotificationsList({ onNavigate }: NotificationsListProps) {
         {loading ? (
           <Spinner label="Loading notifications..." />
         ) : error ? (
-          <Text color="red">Error: {error.message}</Text>
+          <ErrorBox message={error.message} hint="Press r to refresh or q to go back." />
         ) : items.length === 0 ? (
-          <Box paddingY={1}>
-            <Muted>
-              {filter === "unread"
-                ? "No unread notifications"
-                : "No notifications"}
-            </Muted>
-          </Box>
+          <EmptyState
+            message={filter === "unread" ? "No unread notifications." : "No notifications."}
+            hint={filter === "unread" ? "Press 'A' to view all notifications." : "You're all caught up!"}
+          />
         ) : (
           <List items={items} onSelect={handleSelect} />
         )}
@@ -262,7 +229,7 @@ export function NotificationsList({ onNavigate }: NotificationsListProps) {
       <StatusBar
         bindings={[
           { key: "j/k", label: "navigate" },
-          { key: "Enter", label: "open + mark read" },
+          { key: "Enter", label: "open" },
           { key: "a", label: "mark all read" },
           { key: "u", label: "unread" },
           { key: "A", label: "all" },

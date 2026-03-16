@@ -102,8 +102,8 @@ export function Table<T extends Record<string, unknown>>({
       })}
 
       {data.length === 0 && (
-        <InkBox marginTop={1}>
-          <InkText dimColor>No data</InkText>
+        <InkBox marginTop={1} paddingY={1}>
+          <InkText dimColor>No data to display.</InkText>
         </InkBox>
       )}
     </InkBox>

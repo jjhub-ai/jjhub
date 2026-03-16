@@ -651,18 +651,30 @@ export class WorkspaceService {
       });
     }
 
-    const sshInfo = await this.sandbox.getSSHConnectionInfo(vmId, this.username);
+    // Generate a short-lived sandbox access token instead of using Freestyle identity.
+    const rawToken = randomUUID();
+    const tokenHash = createHash("sha256").update(rawToken).digest();
+
+    await dbCreateSandboxAccessToken(this.sql, {
+      workspaceId: workspace.id,
+      vmId,
+      userId: String(userID),
+      linuxUser: this.username,
+      tokenHash: tokenHash,
+      tokenType: "ssh",
+      expiresAt: new Date(Date.now() + SANDBOX_ACCESS_TOKEN_TTL_MS),
+    });
 
     const info: WorkspaceSSHConnectionInfo = {
       workspace_id: workspace.id,
       session_id: session.id,
       vm_id: vmId,
-      host: sshInfo.host,
-      ssh_host: `${vmId}@${this.sshHost}`,
-      username: sshInfo.username,
-      port: sshInfo.port,
-      access_token: "",
-      command: `ssh -p ${sshInfo.port} ${sshInfo.username}@${sshInfo.host}`,
+      host: this.sshHost,
+      ssh_host: `${vmId}+${this.username}@${this.sshHost}`,
+      username: this.username,
+      port: 22,
+      access_token: rawToken,
+      command: `ssh ${vmId}+${this.username}:${rawToken}@${this.sshHost}`,
     };
 
     // Persist SSH connection info to session

@@ -182,13 +182,14 @@ export function App({ initialRepo }: AppProps) {
 
   const [showSplash, setShowSplash] = useState(true);
   const [screenStack, setScreenStack] = useState<ScreenState[]>(() => {
+    const dashboard: ScreenState = { name: "dashboard", params: {} };
     if (initialRepo) {
       return [
-        { name: "dashboard", params: {} },
+        dashboard,
         { name: "repo", params: { owner: initialRepo.owner, name: initialRepo.name } },
       ];
     }
-    return [{ name: "dashboard", params: {} }];
+    return [dashboard];
   });
   const [showCommandPalette, setShowCommandPalette] = useState(false);
   const [showHelp, setShowHelp] = useState(false);

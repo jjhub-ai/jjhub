@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { Box as InkBox } from "ink";
 import { Box, Text, Input, StatusBar } from "../primitives";
+import { theme } from "../utils";
 
 interface CommandDef {
   command: string;
@@ -106,14 +107,14 @@ export function CommandPalette({ onExecute, onCancel, repoContext }: CommandPale
     <InkBox
       flexDirection="column"
       borderStyle="round"
-      borderColor="cyan"
+      borderColor={theme.accent}
       paddingX={1}
       paddingY={0}
       width="100%"
     >
       {/* Command input */}
       <InkBox flexDirection="row" gap={1}>
-        <Text color="cyan" bold>Command</Text>
+        <Text color={theme.accent} bold>Command</Text>
       </InkBox>
       <Input
         value={query}
@@ -129,12 +130,12 @@ export function CommandPalette({ onExecute, onCancel, repoContext }: CommandPale
       <InkBox flexDirection="column" paddingY={1}>
         {filtered.slice(0, 12).map((cmd, i) => (
           <InkBox key={cmd.command} gap={1}>
-            <Text color="yellow" bold>
+            <Text color={theme.warning} bold>
               {cmd.command.padEnd(24)}
             </Text>
             <Text dimColor>{cmd.description}</Text>
             {cmd.needsRepo && !repoContext && (
-              <Text color="gray" dimColor> (needs repo)</Text>
+              <Text color={theme.muted} dimColor> (needs repo)</Text>
             )}
           </InkBox>
         ))}

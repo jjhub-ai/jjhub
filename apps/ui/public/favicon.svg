@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" fill="none">
+  <rect width="128" height="128" rx="24" class="bg"/>
+  <text x="64" y="96" text-anchor="middle" font-family="ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, monospace" font-weight="800" font-size="88" class="fg">jj</text>
+  <style>
+    .bg { fill: #18181b; }
+    .fg { fill: #f4f4f5; }
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #f4f4f5; }
+      .fg { fill: #18181b; }
+    }
+  </style>
+</svg>

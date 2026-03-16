@@ -1,0 +1,16 @@
+{
+  "name": "@jjhub/desktop",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "electrobun dev --watch",
+    "build": "electrobun build",
+    "build:canary": "electrobun build --env=canary"
+  },
+  "dependencies": {
+    "@jjhub/server": "workspace:*",
+    "@jjhub/sdk": "workspace:*",
+    "electrobun": "latest"
+  }
+}

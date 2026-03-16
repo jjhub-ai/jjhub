@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.compiled
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Data directories
+data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Test coverage
+coverage/
+
+# Bun
+bun.lockb
+
+# Docker volumes (if accidentally created locally)
+pgdata/
+repodata/

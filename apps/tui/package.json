@@ -1,0 +1,25 @@
+{
+  "name": "@jjhub/tui",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "src/index.tsx",
+  "scripts": {
+    "dev": "tsx src/index.tsx",
+    "build": "tsup src/index.tsx --format esm --dts",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@jjhub/sdk": "workspace:*",
+    "ink": "^5.1.0",
+    "ink-spinner": "^5.0.0",
+    "ink-text-input": "^6.0.0",
+    "react": "^18.3.1",
+    "solid-js": "^1.9.11"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.18",
+    "tsx": "^4.19.4",
+    "tsup": "^8.4.0",
+    "typescript": "^5.9.3"
+  }
+}

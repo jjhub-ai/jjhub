@@ -1,0 +1,144 @@
+.diff-file-tree {
+    position: relative;
+    flex: 0 0 auto;
+    min-width: 220px;
+    max-width: 420px;
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    background: rgba(17, 21, 28, 0.9);
+    overflow: hidden;
+}
+
+.diff-file-tree-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.diff-file-tree-count {
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+}
+
+.diff-file-tree-list {
+    display: flex;
+    flex-direction: column;
+    max-height: 70vh;
+    overflow: auto;
+}
+
+.diff-file-tree-item {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    background: transparent;
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.diff-file-tree-item:hover,
+.diff-file-tree-item.is-active {
+    background: rgba(123, 147, 217, 0.12);
+}
+
+.diff-file-tree-status {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    color: white;
+}
+
+.diff-file-tree-status.is-added {
+    background: var(--accent-green);
+}
+
+.diff-file-tree-status.is-deleted {
+    background: var(--accent-red);
+}
+
+.diff-file-tree-status.is-renamed {
+    background: var(--accent-yellow);
+    color: var(--bg-app);
+}
+
+.diff-file-tree-status.is-modified {
+    background: var(--accent-blue);
+}
+
+.diff-file-tree-path {
+    min-width: 0;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.diff-file-tree-stats {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.diff-file-tree-stats .is-add {
+    color: var(--accent-green);
+}
+
+.diff-file-tree-stats .is-del {
+    color: var(--accent-red);
+}
+
+.diff-file-tree-chip {
+    grid-column: 2 / 4;
+    justify-self: start;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    margin-left: 32px;
+}
+
+.diff-file-tree-empty {
+    padding: 18px 16px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.diff-file-tree-resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 8px;
+    height: 100%;
+    border: none;
+    background: transparent;
+    cursor: col-resize;
+}
+
+.diff-file-tree-resize-handle.is-active,
+.diff-file-tree-resize-handle:hover {
+    background: rgba(123, 147, 217, 0.25);
+}

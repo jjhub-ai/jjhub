@@ -1,0 +1,22 @@
+{
+  "name": "jjhub",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --filter '@jjhub/server' dev",
+    "build": "bun run --filter '*' build",
+    "build:server": "bun run --filter '@jjhub/server' build",
+    "build:cli": "bun run --filter '@jjhub/cli' build",
+    "test:e2e": "bun run --filter '@jjhub/e2e-cli' test",
+    "sqlc": "sqlc generate",
+    "check": "bun run --filter '*' check",
+    "clean": "rm -rf apps/*/dist packages/*/dist"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.8"
+  }
+}

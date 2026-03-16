@@ -1,0 +1,15 @@
+{
+  "name": "@jjhub/sdk",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "latest",
+    "better-result": "latest",
+    "hono": "latest",
+    "postgres": "latest"
+  }
+}

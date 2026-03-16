@@ -1,0 +1,14 @@
+{
+  "name": "@jjhub/ui-core",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@jjhub/sdk": "workspace:*",
+    "nanostores": "^1.1.1",
+    "solid-js": "^1.9.11"
+  }
+}

@@ -1,0 +1,10 @@
+FROM oven/bun:1
+WORKDIR /app
+COPY package.json bun.lock ./
+COPY apps/server/package.json apps/server/
+COPY apps/cli/package.json apps/cli/
+COPY packages/sdk/package.json packages/sdk/
+COPY packages/workflow/package.json packages/workflow/
+RUN bun install
+COPY . .
+CMD ["bun", "run", "dev"]

@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: jjhub
+      POSTGRES_PASSWORD: jjhub
+      POSTGRES_DB: jjhub
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jjhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps:/app/apps
+      - ./packages:/app/packages
+      - ./db:/app/db
+      - repodata:/app/data
+    environment:
+      JJHUB_DB_HOST: db
+      JJHUB_DB_PORT: "5432"
+      JJHUB_DB_NAME: jjhub
+      JJHUB_DB_USER: jjhub
+      JJHUB_DB_PASSWORD: jjhub
+      JJHUB_PORT: "3000"
+      JJHUB_DATA_DIR: /app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    command: bun run dev
+
+volumes:
+  pgdata:
+  repodata:

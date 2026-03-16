@@ -1,0 +1,255 @@
+-- name: GetBillingAccountByOwner :one
+SELECT *
+FROM billing_accounts
+WHERE owner_type = sqlc.arg(owner_type)
+  AND owner_id = sqlc.arg(owner_id);
+
+-- name: GetBillingAccountByStripeCustomerID :one
+SELECT *
+FROM billing_accounts
+WHERE stripe_customer_id = sqlc.arg(stripe_customer_id);
+
+-- name: UpsertBillingAccount :one
+INSERT INTO billing_accounts (
+    owner_type,
+    owner_id,
+    stripe_customer_id,
+    stripe_customer_email,
+    stripe_customer_name
+)
+VALUES (
+    sqlc.arg(owner_type),
+    sqlc.arg(owner_id),
+    sqlc.arg(stripe_customer_id),
+    sqlc.arg(stripe_customer_email),
+    sqlc.arg(stripe_customer_name)
+)
+ON CONFLICT (owner_type, owner_id) DO UPDATE
+SET stripe_customer_id = EXCLUDED.stripe_customer_id,
+    stripe_customer_email = EXCLUDED.stripe_customer_email,
+    stripe_customer_name = EXCLUDED.stripe_customer_name,
+    updated_at = NOW()
+RETURNING *;
+
+-- name: UpsertBillingSubscription :one
+INSERT INTO billing_subscriptions (
+    billing_account_id,
+    stripe_subscription_id,
+    stripe_price_id,
+    plan_key,
+    billing_interval,
+    status,
+    quantity,
+    trial_end,
+    current_period_start,
+    current_period_end,
+    cancel_at_period_end,
+    canceled_at,
+    raw_payload
+)
+VALUES (
+    sqlc.arg(billing_account_id),
+    sqlc.arg(stripe_subscription_id),
+    sqlc.arg(stripe_price_id),
+    sqlc.arg(plan_key),
+    sqlc.arg(billing_interval),
+    sqlc.arg(status),
+    sqlc.arg(quantity),
+    sqlc.arg(trial_end),
+    sqlc.arg(current_period_start),
+    sqlc.arg(current_period_end),
+    sqlc.arg(cancel_at_period_end),
+    sqlc.arg(canceled_at),
+    sqlc.arg(raw_payload)
+)
+ON CONFLICT (stripe_subscription_id) DO UPDATE
+SET billing_account_id = EXCLUDED.billing_account_id,
+    stripe_price_id = EXCLUDED.stripe_price_id,
+    plan_key = EXCLUDED.plan_key,
+    billing_interval = EXCLUDED.billing_interval,
+    status = EXCLUDED.status,
+    quantity = EXCLUDED.quantity,
+    trial_end = EXCLUDED.trial_end,
+    current_period_start = EXCLUDED.current_period_start,
+    current_period_end = EXCLUDED.current_period_end,
+    cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+    canceled_at = EXCLUDED.canceled_at,
+    raw_payload = EXCLUDED.raw_payload,
+    updated_at = NOW()
+RETURNING *;
+
+-- name: GetLatestBillingSubscriptionByAccount :one
+SELECT *
+FROM billing_subscriptions
+WHERE billing_account_id = sqlc.arg(billing_account_id)
+ORDER BY updated_at DESC, id DESC
+LIMIT 1;
+
+-- name: ListBillingSubscriptionsByAccount :many
+SELECT *
+FROM billing_subscriptions
+WHERE billing_account_id = sqlc.arg(billing_account_id)
+ORDER BY updated_at DESC, id DESC;
+
+-- name: DeactivateBillingEntitlementsByAccount :exec
+UPDATE billing_entitlements
+SET active = FALSE,
+    last_synced_at = NOW(),
+    updated_at = NOW()
+WHERE billing_account_id = sqlc.arg(billing_account_id);
+
+-- name: UpsertBillingEntitlement :one
+INSERT INTO billing_entitlements (
+    billing_account_id,
+    feature_key,
+    active,
+    last_synced_at
+)
+VALUES (
+    sqlc.arg(billing_account_id),
+    sqlc.arg(feature_key),
+    sqlc.arg(active),
+    sqlc.arg(last_synced_at)
+)
+ON CONFLICT (billing_account_id, feature_key) DO UPDATE
+SET active = EXCLUDED.active,
+    last_synced_at = EXCLUDED.last_synced_at,
+    updated_at = NOW()
+RETURNING *;
+
+-- name: ListBillingEntitlementsByAccount :many
+SELECT *
+FROM billing_entitlements
+WHERE billing_account_id = sqlc.arg(billing_account_id)
+ORDER BY feature_key ASC;
+
+-- name: UpsertBillingUsageCounter :one
+INSERT INTO billing_usage_counters (
+    owner_type,
+    owner_id,
+    metric_key,
+    period_start,
+    period_end,
+    included_quantity,
+    consumed_quantity,
+    overage_quantity,
+    last_reported_meter_event_id,
+    last_synced_at
+)
+VALUES (
+    sqlc.arg(owner_type),
+    sqlc.arg(owner_id),
+    sqlc.arg(metric_key),
+    sqlc.arg(period_start),
+    sqlc.arg(period_end),
+    sqlc.arg(included_quantity),
+    sqlc.arg(consumed_quantity),
+    sqlc.arg(overage_quantity),
+    sqlc.arg(last_reported_meter_event_id),
+    sqlc.arg(last_synced_at)
+)
+ON CONFLICT (owner_type, owner_id, metric_key, period_start, period_end) DO UPDATE
+SET included_quantity = EXCLUDED.included_quantity,
+    consumed_quantity = EXCLUDED.consumed_quantity,
+    overage_quantity = EXCLUDED.overage_quantity,
+    last_reported_meter_event_id = EXCLUDED.last_reported_meter_event_id,
+    last_synced_at = EXCLUDED.last_synced_at,
+    updated_at = NOW()
+RETURNING *;
+
+-- name: ListBillingUsageCountersByOwnerAndPeriod :many
+SELECT *
+FROM billing_usage_counters
+WHERE owner_type = sqlc.arg(owner_type)
+  AND owner_id = sqlc.arg(owner_id)
+  AND period_start = sqlc.arg(period_start)
+  AND period_end = sqlc.arg(period_end)
+ORDER BY metric_key ASC;
+
+-- name: CountPrivateReposByOwner :one
+SELECT COUNT(*)::bigint
+FROM repositories r
+WHERE NOT r.is_public
+  AND (
+    (sqlc.arg(owner_type)::text = 'user' AND r.user_id = sqlc.arg(owner_id)::bigint)
+    OR
+    (sqlc.arg(owner_type)::text = 'org' AND r.org_id = sqlc.arg(owner_id)::bigint)
+  );
+
+-- name: SumStorageBytesByOwner :one
+WITH owned_repos AS (
+    SELECT id
+    FROM repositories
+    WHERE (
+        sqlc.arg(owner_type)::text = 'user'
+        AND user_id = sqlc.arg(owner_id)::bigint
+    )
+    OR (
+        sqlc.arg(owner_type)::text = 'org'
+        AND org_id = sqlc.arg(owner_id)::bigint
+    )
+)
+SELECT (
+    COALESCE((
+        SELECT SUM(lo.size)
+        FROM lfs_objects lo
+        WHERE lo.repository_id IN (SELECT id FROM owned_repos)
+    ), 0)
+    + COALESCE((
+        SELECT SUM(wa.size)
+        FROM workflow_artifacts wa
+        WHERE wa.repository_id IN (SELECT id FROM owned_repos)
+          AND wa.status = 'ready'
+    ), 0)
+    + COALESCE((
+        SELECT SUM(wc.object_size_bytes)
+        FROM workflow_caches wc
+        WHERE wc.repository_id IN (SELECT id FROM owned_repos)
+          AND wc.status = 'finalized'
+    ), 0)
+)::bigint;
+
+-- name: SumWorkflowMinutesByOwner :one
+WITH owned_repos AS (
+    SELECT id
+    FROM repositories
+    WHERE (
+        sqlc.arg(owner_type)::text = 'user'
+        AND user_id = sqlc.arg(owner_id)::bigint
+    )
+    OR (
+        sqlc.arg(owner_type)::text = 'org'
+        AND org_id = sqlc.arg(owner_id)::bigint
+    )
+)
+SELECT COALESCE(SUM(
+    GREATEST(
+        CEIL(EXTRACT(EPOCH FROM (COALESCE(wr.completed_at, NOW()) - wr.started_at)) / 60.0),
+        0
+    )
+), 0)::bigint
+FROM workflow_runs wr
+WHERE wr.repository_id IN (SELECT id FROM owned_repos)
+  AND wr.created_at >= sqlc.arg(period_start)
+  AND wr.created_at < sqlc.arg(period_end)
+  AND wr.started_at IS NOT NULL;
+
+-- name: CountAgentRunsByOwner :one
+WITH owned_repos AS (
+    SELECT id
+    FROM repositories
+    WHERE (
+        sqlc.arg(owner_type)::text = 'user'
+        AND user_id = sqlc.arg(owner_id)::bigint
+    )
+    OR (
+        sqlc.arg(owner_type)::text = 'org'
+        AND org_id = sqlc.arg(owner_id)::bigint
+    )
+)
+SELECT COUNT(*)::bigint
+FROM workflow_runs wr
+WHERE wr.repository_id IN (SELECT id FROM owned_repos)
+  AND wr.trigger_event = 'agent_message'
+  AND wr.created_at >= sqlc.arg(period_start)
+  AND wr.created_at < sqlc.arg(period_end);

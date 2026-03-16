@@ -1,0 +1,187 @@
+.diff-review {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    outline: none;
+}
+
+.diff-review-summary {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 0 2px;
+}
+
+.diff-review-summary-value {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-right: 6px;
+}
+
+.diff-review-summary-value.is-add {
+    color: var(--accent-green);
+}
+
+.diff-review-summary-value.is-del {
+    color: var(--accent-red);
+}
+
+.diff-review-summary-label {
+    color: var(--text-muted);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.diff-review-layout {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.diff-review-files {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-width: 0;
+}
+
+.diff-file-section {
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--bg-panel);
+    box-shadow: var(--shadow-sm);
+}
+
+.diff-file-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.diff-file-toggle {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: none;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+    min-width: 0;
+}
+
+.diff-file-path {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-primary);
+}
+
+.diff-file-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.diff-file-change {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.diff-file-stats {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.diff-file-stats.is-add {
+    color: var(--accent-green);
+}
+
+.diff-file-stats.is-del {
+    color: var(--accent-red);
+}
+
+.diff-file-copy {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.diff-file-copy:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.diff-file-body {
+    padding: 0;
+    overflow: auto;
+}
+
+.diff-file-empty,
+.diff-review-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    min-height: 120px;
+    border: 1px dashed var(--border-color);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.02);
+    color: var(--text-muted);
+    padding: 16px;
+}
+
+.diff-review-state.is-error {
+    color: var(--accent-red);
+    border-color: rgba(240, 82, 82, 0.3);
+}
+
+.diff-review-retry {
+    border: 1px solid rgba(240, 82, 82, 0.35);
+    background: rgba(240, 82, 82, 0.08);
+    color: inherit;
+    border-radius: 999px;
+    padding: 6px 12px;
+    cursor: pointer;
+}
+
+.diff-tailwindcss-wrapper .diff-style-root {
+    font-size: 13px;
+}
+
+@media (max-width: 1024px) {
+    .diff-review-layout {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .diff-file-tree {
+        width: 100% !important;
+        max-width: none;
+    }
+
+    .diff-file-tree-resize-handle {
+        display: none;
+    }
+}

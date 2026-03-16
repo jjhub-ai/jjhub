@@ -1,0 +1,183 @@
+.settings-page {
+    width: 100%;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+.settings-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 1.5rem;
+}
+
+.settings-header h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    margin: 0 0 0.5rem 0;
+}
+
+.primary-btn {
+    background: var(--color-blue);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all var(--duration-fast) ease;
+}
+
+.primary-btn:hover:not(:disabled) {
+    background: #5d75ba;
+}
+
+.primary-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.secondary-btn {
+    background: transparent;
+    color: var(--color-primary);
+    border: 1px solid var(--border-color);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    transition: all var(--duration-fast) ease;
+}
+
+.secondary-btn:hover:not(:disabled) {
+    background: var(--bg-panel-hover);
+}
+
+.add-token-card {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-primary);
+    margin-bottom: 0.5rem;
+}
+
+.form-group input[type="text"] {
+    width: 100%;
+    background: var(--bg-app);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    color: var(--color-primary);
+    font-size: 1rem;
+    font-family: inherit;
+    transition: all var(--duration-fast) ease;
+}
+
+.form-group input[type="text"]:focus {
+    outline: none;
+    border-color: var(--color-blue);
+}
+
+.scopes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+
+.scope-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-app);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all var(--duration-fast) ease;
+}
+
+.scope-card:hover {
+    border-color: var(--color-blue);
+    background: var(--bg-panel-hover);
+}
+
+.scope-card.selected {
+    border-color: var(--color-blue);
+    background: rgba(123, 147, 217, 0.05);
+    /* Blue tint */
+}
+
+.scope-checkbox {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+    transition: all 0.2s ease;
+}
+
+.scope-card.selected .scope-checkbox {
+    background: var(--color-blue);
+    border-color: var(--color-blue);
+}
+
+.scope-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.scope-name {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-primary);
+}
+
+.scope-desc {
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+.text-blue {
+    color: var(--color-blue);
+}
+
+.text-red {
+    color: #f85149;
+}
+
+.text-yellow {
+    color: #d29922;
+}
+
+.text-green {
+    color: #2ea043;
+}

@@ -1,0 +1,122 @@
+// @jjhub/ui-core — Shared UI logic for JJHub web and terminal UIs
+//
+// This package extracts platform-agnostic state management, API client,
+// types, and data-fetching hooks from the web UI so they can be reused
+// by terminal UIs and other rendering targets.
+
+// API client, types, and helpers
+export {
+    // Client
+    configureApiClient,
+    getApiClientConfig,
+    apiFetch,
+    repoApiPath,
+    hasRepoContext,
+    repoApiFetch,
+    repoApiWrite,
+    type ApiClientConfig,
+    // Agent messages
+    normalizePersistedAgentMessage,
+    // Types
+    type UserRepoSummary,
+    type SearchRepoResult,
+    type UserRepoListPage,
+    type SearchRepoListPage,
+    type RepoResponse,
+    type ContentEntry,
+    type RepoFileResponse,
+    type BookmarkResponse,
+    type RepoBookmarksBundle,
+    type IssueLabel,
+    type IssueSummary,
+    type IssueDetailResponse,
+    type IssueCommentResponse,
+    type IssueDetailBundle,
+    type LandingSummary,
+    type LandingDetail,
+    type LandingComment,
+    type LandingReview,
+    type LandingChange,
+    type LandingDiffResponse,
+    type LandingDetailBundle,
+    type RepoChange,
+    type ChangeResponse,
+    type Notification,
+    type NotificationsPage,
+    type WorkflowDefinition,
+    type WorkflowRun,
+    type WorkflowWithLatestRun,
+    type WorkflowDefinitionsBundle,
+    type CurrentUser,
+    type AgentMessagePart,
+    type PersistedAgentMessage,
+    type NormalizedAgentMessage,
+    type RepoContext,
+    type FeatureFlags,
+} from "./api";
+
+// Stores (nanostores — platform agnostic)
+export {
+    // Storage
+    configureStorage,
+    createPersistentAtom,
+    readStoredString,
+    writeStoredString,
+    removeStoredString,
+    readStoredJSON,
+    writeStoredJSON,
+    type StorageBackend,
+    // Diff preferences
+    $diffViewMode,
+    $diffWhitespaceMode,
+    $collapsedDiffFiles,
+    setDiffViewMode,
+    toggleDiffViewMode,
+    setDiffWhitespaceMode,
+    setCollapsedDiffFile,
+    toggleCollapsedDiffFile,
+    resetDiffPreferences,
+    type DiffViewMode,
+    type DiffWhitespaceMode,
+    // Workbench
+    isSidebarCollapsed,
+    isAgentDockOpen,
+    isTerminalOpen,
+    isCommandPaletteOpen,
+    isKeyboardHelpOpen,
+    isKeyboardNavigationMode,
+    $editorVimMode,
+    $editorTheme,
+    $editorFontSize,
+    toggleSidebar,
+    toggleAgentDock,
+    toggleTerminal,
+    toggleCommandPalette,
+    openKeyboardHelp,
+    closeKeyboardHelp,
+    toggleKeyboardHelp,
+    type EditorThemePreference,
+    // Feature flags
+    featureFlags,
+    featureFlagsLoaded,
+    initFeatureFlags,
+    isFeatureEnabled,
+} from "./stores";
+
+// Hooks (SolidJS signals/resources)
+export {
+    useIssues,
+    useRepos,
+    useUser,
+    useLandings,
+    useWorkflows,
+    useSearch,
+    useNotifications,
+    type UseIssuesResult,
+    type UseReposResult,
+    type UseUserResult,
+    type UseLandingsResult,
+    type UseWorkflowsResult,
+    type UseSearchResult,
+    type UseNotificationsResult,
+} from "./hooks";

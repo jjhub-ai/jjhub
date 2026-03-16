@@ -1,0 +1,45 @@
+{
+  "name": "ui",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:e2e": "cd ../../e2e && bun run test:playwright",
+    "test:e2e:compose": "docker compose -f ../../docker-compose.yml -f ../../docker-compose.ui-e2e.yml up --build --abort-on-container-exit --exit-code-from ui-e2e ui-e2e"
+  },
+  "dependencies": {
+    "@git-diff-view/shiki": "^0.1.2",
+    "@git-diff-view/solid": "^0.1.2",
+    "@microsoft/fetch-event-source": "^2.0.1",
+    "@nanostores/solid": "^1.1.1",
+    "@sentry/solid": "^10.43.0",
+    "@tailwindcss/vite": "^4.2.1",
+    "lucide-solid": "^0.575.0",
+    "markdown-it": "^14.1.1",
+    "monaco-editor": "^0.55.1",
+    "monaco-themes": "^0.4.8",
+    "nanostores": "^1.1.1",
+    "shiki": "^3.23.0",
+    "solid-js": "^1.9.11",
+    "tailwindcss": "^4.2.1",
+    "vite-plugin-monaco-editor": "^1.1.0",
+    "xterm": "^5.3.0",
+    "xterm-addon-fit": "^0.8.0"
+  },
+  "devDependencies": {
+    "@sentry/vite-plugin": "^5.1.1",
+    "@solidjs/router": "^0.15.4",
+    "@solidjs/testing-library": "^0.8.10",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@types/markdown-it": "^14.1.2",
+    "jsdom": "^28.1.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-pwa": "^1.2.0",
+    "vite-plugin-solid": "^2.11.10",
+    "vitest": "^4.0.18"
+  }
+}

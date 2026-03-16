@@ -1,0 +1,552 @@
+.changes-container {
+    padding: 40px 48px;
+    max-width: 1400px;
+    width: 100%;
+    margin: 0 auto;
+    overflow-y: auto;
+    height: 100%;
+    position: relative;
+}
+
+.changes-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-title h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.primary-btn {
+    background-color: var(--accent-blue);
+    color: white;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.secondary-btn {
+    background-color: var(--bg-panel);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.secondary-btn:hover {
+    background-color: var(--bg-panel-hover);
+}
+
+.primary-btn:hover {
+    opacity: 0.9;
+}
+
+/* Toolbar */
+.changes-toolbar {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 16px;
+    margin-bottom: 24px;
+    display: flex;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.revset-input-wrapper {
+    display: flex;
+    align-items: center;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 4px 8px;
+    width: 300px;
+}
+
+.revset-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-primary);
+    width: 100%;
+}
+
+.kbd {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    background: var(--bg-active);
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+/* Tree Layout */
+.changes-tree-area {
+    margin-top: 16px;
+    padding-bottom: 120px;
+    /* Space for info card at bottom */
+}
+
+.change-node-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+
+.change-row-wrapper {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.change-row-wrapper:hover {
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.change-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 16px;
+    border-radius: 8px;
+    transition: background 0.15s;
+    position: relative;
+}
+
+.change-row:hover {
+    background-color: rgba(255, 255, 255, 0.04);
+}
+
+.change-row:hover .change-actions {
+    opacity: 1;
+}
+
+.change-row.is-head {
+    background-color: rgba(75, 121, 228, 0.05);
+    /* very subtle blue */
+}
+
+/* Tree Visualization */
+.tree-connector {
+    position: relative;
+    width: 24px;
+    display: flex;
+    justify-content: center;
+    margin-right: 12px;
+    height: 40px;
+    /* Force height so vertical lines connect */
+}
+
+.node-dot {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    background-color: var(--bg-app);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    margin-top: 13px;
+    /* Align with text */
+}
+
+.solid-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+}
+
+.vertical-line {
+    position: absolute;
+    top: 27px;
+    bottom: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    background-color: var(--border-light);
+    z-index: 1;
+}
+
+/* Content */
+.change-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex: 1;
+    padding-right: 16px;
+}
+
+.change-main {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.change-message {
+    font-size: 14.5px;
+    color: var(--text-primary);
+}
+
+.change-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+}
+
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+    box-shadow: 0 0 8px currentColor;
+    opacity: 0.9;
+}
+
+.bg-blue-subtle {
+    background-color: rgba(75, 121, 228, 0.15);
+}
+
+.bg-green-subtle {
+    background-color: rgba(52, 168, 83, 0.15);
+}
+
+.bg-red-subtle {
+    background-color: rgba(234, 67, 53, 0.15);
+}
+
+.change-hash {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+}
+
+.change-author {
+    color: var(--text-secondary);
+}
+
+.change-time {
+    color: var(--text-muted);
+}
+
+/* Actions */
+.change-actions {
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.action-btn {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-active);
+}
+
+/* Utilities */
+.text-blue {
+    color: var(--accent-blue);
+}
+
+.text-red {
+    color: var(--accent-red);
+}
+
+.text-green {
+    color: var(--accent-green);
+}
+
+.text-yellow {
+    color: var(--accent-yellow);
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+.text-primary {
+    color: var(--text-primary);
+}
+
+.font-semibold {
+    font-weight: 600;
+}
+
+.font-mono {
+    font-family: var(--font-mono);
+}
+
+.font-normal {
+    font-weight: 400;
+}
+
+.ml-2 {
+    margin-left: 8px;
+}
+
+.mt-2 {
+    margin-top: 8px;
+}
+
+.text-sm {
+    font-size: 13px;
+}
+
+.text-lg {
+    font-size: 18px;
+}
+
+/* Sticky Info panel */
+.changes-sidebar-info {
+    position: absolute;
+    bottom: 24px;
+    right: 48px;
+    z-index: 50;
+}
+
+.info-card {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: inline-flex;
+    flex-direction: column;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.info-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.info-card-header h3 {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.change-diff-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 16px;
+    background: linear-gradient(180deg, rgba(17, 21, 28, 0.96), rgba(11, 14, 20, 0.98));
+    border-top: 1px solid var(--border-color);
+}
+
+.change-diff-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.change-diff-layout {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.change-diff-files {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.change-diff-file {
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(11, 14, 20, 0.78);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.change-diff-file.is-active {
+    border-color: rgba(123, 147, 217, 0.4);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+}
+
+.change-diff-file-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: rgba(17, 21, 28, 0.88);
+    cursor: pointer;
+}
+
+.change-diff-file-toggle {
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.change-diff-file-path {
+    min-width: 0;
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.change-diff-file-badge {
+    border-radius: 999px;
+    padding: 3px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: capitalize;
+}
+
+.change-diff-file-badge.is-added {
+    background: rgba(89, 193, 115, 0.14);
+    color: var(--accent-green);
+}
+
+.change-diff-file-badge.is-deleted {
+    background: rgba(240, 82, 82, 0.14);
+    color: var(--accent-red);
+}
+
+.change-diff-file-badge.is-renamed {
+    background: rgba(227, 179, 65, 0.14);
+    color: var(--accent-yellow);
+}
+
+.change-diff-file-badge.is-modified {
+    background: rgba(123, 147, 217, 0.14);
+    color: var(--accent-blue);
+}
+
+.change-diff-file-stats {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.change-diff-file-body {
+    overflow: auto;
+    background: rgba(11, 14, 20, 0.92);
+}
+
+.change-diff-feedback {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: rgba(17, 21, 28, 0.84);
+    color: var(--text-secondary);
+}
+
+.change-diff-feedback.is-error {
+    border-color: rgba(240, 82, 82, 0.28);
+    color: var(--text-primary);
+}
+
+.diff-inline-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-panel);
+    color: var(--text-secondary);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.diff-inline-btn:hover {
+    background: var(--bg-panel-hover);
+    color: var(--text-primary);
+}
+
+.jjhub-diff-view {
+    min-width: max-content;
+}
+
+.jjhub-diff-view .diff-root,
+.jjhub-diff-view .diff-tailwindcss-wrapper {
+    background: transparent;
+}
+
+.diff-viewer-empty-state {
+    padding: 20px 24px;
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 13px;
+}
+
+@media (max-width: 960px) {
+    .changes-container {
+        padding: 28px 20px 120px;
+    }
+
+    .change-diff-layout {
+        flex-direction: column;
+    }
+
+    .change-diff-file-header {
+        flex-wrap: wrap;
+    }
+
+    .change-diff-file-path {
+        width: 100%;
+        order: 2;
+    }
+}

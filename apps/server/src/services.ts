@@ -1,0 +1,93 @@
+/**
+ * Service registry for JJHub Community Edition server.
+ *
+ * Initializes all SDK service instances with the database connection
+ * and exposes them via getServices(). Call initServices() once at startup
+ * after initDb().
+ */
+
+import { getDb, getBlobStore } from "@jjhub/sdk";
+import {
+  UserService,
+  RepoService,
+  IssueService,
+  LabelService,
+  MilestoneService,
+  LandingService,
+  OrgService,
+  WikiService,
+  SearchService,
+  WebhookService,
+  WorkflowService,
+  NotificationService,
+  SecretService,
+  ReleaseService,
+  OAuth2Service,
+  LFSService,
+} from "@jjhub/sdk";
+
+// ---------------------------------------------------------------------------
+// Services type — every service available to route handlers
+// ---------------------------------------------------------------------------
+
+export interface Services {
+  user: UserService;
+  repo: RepoService;
+  issue: IssueService;
+  label: LabelService;
+  milestone: MilestoneService;
+  landing: LandingService;
+  org: OrgService;
+  wiki: WikiService;
+  search: SearchService;
+  webhook: WebhookService;
+  workflow: WorkflowService;
+  notification: NotificationService;
+  secret: SecretService;
+  release: ReleaseService;
+  oauth2: OAuth2Service;
+  lfs: LFSService;
+}
+
+// ---------------------------------------------------------------------------
+// Singleton
+// ---------------------------------------------------------------------------
+
+let services: Services | null = null;
+
+/**
+ * Initialize all services. Must be called after initDb().
+ */
+export function initServices(): void {
+  const db = getDb();
+  const blobs = getBlobStore();
+
+  services = {
+    user: new UserService(db),
+    repo: new RepoService(db),
+    issue: new IssueService(db),
+    label: new LabelService(db),
+    milestone: new MilestoneService(db),
+    landing: new LandingService(db),
+    org: new OrgService(db),
+    wiki: new WikiService(db),
+    search: new SearchService(db),
+    webhook: new WebhookService(db),
+    workflow: new WorkflowService(db),
+    notification: new NotificationService(db),
+    secret: new SecretService(db),
+    release: new ReleaseService(db, blobs),
+    oauth2: new OAuth2Service(db),
+    lfs: new LFSService(db, blobs),
+  };
+}
+
+/**
+ * Get the initialized service registry. Throws if initServices() has not been called.
+ */
+export function getServices(): Services {
+  if (!services) {
+    throw new Error("Services not initialized. Call initServices() first.");
+  }
+  return services;
+}

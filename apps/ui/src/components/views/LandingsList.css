@@ -1,0 +1,5 @@
+/* Inherits globals from LandingsList.css fallback / IssuesList.css */
+.code-badge:hover {
+    background-color: var(--bg-panel-hover);
+    color: var(--text-primary);
+}

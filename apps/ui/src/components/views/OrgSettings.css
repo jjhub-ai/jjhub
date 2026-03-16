@@ -1,0 +1,87 @@
+.org-settings-view {
+    width: 100%;
+}
+
+.settings-nav {
+    border-radius: 8px;
+    padding-right: 1rem;
+}
+
+.nav-tab {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--color-muted);
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s ease;
+}
+
+.nav-tab:hover {
+    color: var(--color-primary);
+}
+
+.nav-tab.active {
+    background: var(--bg-panel);
+    color: var(--color-primary);
+    border-color: var(--border-color);
+}
+
+.nav-tab .badge {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--color-muted);
+    font-size: 0.75rem;
+    padding: 0.1rem 0.5rem;
+    border-radius: 99px;
+}
+
+.nav-tab.active .badge {
+    background: var(--color-blue);
+    color: white;
+}
+
+/* Base button styles */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    background: transparent;
+    color: var(--color-primary);
+}
+
+.btn:hover:not(:disabled) {
+    background: var(--bg-panel-hover);
+}
+
+.btn-primary {
+    background: var(--color-blue);
+    border-color: var(--color-blue);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: #5d75ba;
+    border-color: #5d75ba;
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

@@ -1,0 +1,82 @@
+.terminal-dock {
+    height: 0;
+    width: 100%;
+    background-color: var(--bg-root);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    transition: height 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    overflow: hidden;
+    /* Optional: glass blur for overlay */
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.terminal-dock.open {
+    height: 300px;
+}
+
+.terminal-header {
+    background-color: transparent;
+    border-bottom: 1px solid var(--border-color);
+    height: 36px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.dock-tabs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    height: 100%;
+}
+
+.terminal-tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 12px;
+    height: 100%;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    border-right: 1px solid var(--border-color);
+    cursor: pointer;
+}
+
+.terminal-tab.active {
+    color: var(--text-primary);
+    background-color: var(--border-color);
+    border-top: 2px solid var(--accent-blue);
+}
+
+.dock-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.terminal-content {
+    flex: 1;
+    padding: 8px 12px;
+    background-color: var(--bg-root);
+    overflow: hidden;
+}
+
+/* Ensure xterm fits perfectly inside the container */
+.xterm {
+    height: 100%;
+    width: 100%;
+    padding: 4px;
+}
+
+.xterm-viewport {
+    background-color: transparent !important;
+}
+
+.xterm-screen {
+    width: 100% !important;
+    height: 100% !important;
+}

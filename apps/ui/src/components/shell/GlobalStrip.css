@@ -1,0 +1,123 @@
+.global-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 48px;
+    padding: 0 16px;
+    background-color: var(--bg-sidebar);
+    /* Matches sidebar header color */
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+.strip-left,
+.strip-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.strip-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.strip-btn:hover {
+    background-color: var(--bg-panel-hover);
+    color: var(--text-primary);
+}
+
+.strip-btn.is-active {
+    color: var(--text-primary);
+    background-color: var(--bg-active);
+}
+
+.strip-btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.strip-btn:disabled:hover {
+    background: transparent;
+    color: var(--text-secondary);
+}
+
+.strip-context {
+    background-color: transparent;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: background-color 0.2s;
+}
+
+.strip-context:hover {
+    background-color: var(--bg-panel-hover);
+}
+
+.strip-center {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+.search-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 6px 12px;
+    width: 400px;
+    max-width: 100%;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.search-bar:hover {
+    border-color: var(--border-light);
+    color: var(--text-primary);
+}
+
+.search-icon {
+    opacity: 0.7;
+}
+
+.search-bar span {
+    flex: 1;
+    text-align: left;
+}
+
+.search-bar .shortcut-badge {
+    margin-left: auto;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    line-height: 1;
+}
+
+.text-green {
+    color: var(--accent-green);
+}

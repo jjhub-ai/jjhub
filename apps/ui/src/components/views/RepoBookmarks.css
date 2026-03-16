@@ -1,0 +1,293 @@
+.bookmarks-container {
+    padding: 40px 48px;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    overflow-y: auto;
+    height: 100vh;
+}
+
+.bookmarks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.header-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.header-title h1 {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary);
+    letter-spacing: -0.5px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.search-box {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    padding: 6px 12px;
+    border-radius: 8px;
+    width: 240px;
+}
+
+.search-box input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-size: 13px;
+    width: 100%;
+}
+
+.search-box input::placeholder {
+    color: var(--text-muted);
+}
+
+.primary-btn {
+    background-color: var(--accent-blue);
+    color: white;
+    border: none;
+    padding: 6px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.primary-btn:hover {
+    opacity: 0.9;
+}
+
+/* Toolbar Config */
+.bookmarks-toolbar {
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 24px;
+}
+
+.toolbar-tabs {
+    display: flex;
+    gap: 24px;
+}
+
+.tab {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 14px;
+    font-weight: 500;
+    padding: 0 0 12px 0;
+    cursor: pointer;
+    position: relative;
+}
+
+.tab:hover {
+    color: var(--text-primary);
+}
+
+.tab:focus {
+    outline: none;
+}
+
+.tab:focus-visible {
+    box-shadow: 0 0 0 2px var(--bg-root), 0 0 0 4px rgba(123, 147, 217, 0.4);
+    border-radius: 4px;
+}
+
+.tab.active {
+    color: var(--text-primary);
+}
+
+.tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background-color: var(--accent-blue);
+    border-radius: 2px 2px 0 0;
+}
+
+/* List Output */
+.bookmarks-list {
+    display: flex;
+    flex-direction: column;
+}
+
+.list-header {
+    display: flex;
+    padding: 12px 16px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.col-name {
+    flex: 2;
+}
+
+.col-commit {
+    flex: 3;
+    padding: 0 24px;
+}
+
+.col-status {
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.bookmark-row {
+    display: flex;
+    padding: 16px;
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.15s;
+}
+
+.bookmark-row-clickable {
+    cursor: pointer;
+}
+
+.bookmark-row:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+.bookmark-row:hover .row-actions {
+    opacity: 1;
+}
+
+/* Col 1: Name & Meta */
+.bm-name-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.bm-name {
+    font-size: 14px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+}
+
+.font-semibold {
+    font-weight: 600;
+}
+
+.bm-meta {
+    font-size: 12px;
+    color: var(--text-muted);
+    padding-left: 24px;
+}
+
+.bm-time {
+    margin-right: 8px;
+}
+
+/* Col 2: Commit Details */
+.commit-desc {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.commit-hash {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+}
+
+/* Col 3: Status & Actions */
+.status-bar {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    font-family: var(--font-mono);
+}
+
+.status-metric {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.row-actions {
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.action-btn {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: 6px;
+    padding: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.action-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-active);
+}
+
+.text-primary {
+    color: var(--text-primary);
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+.text-blue {
+    color: var(--accent-blue);
+}
+
+.text-red {
+    color: var(--accent-red);
+}
+
+.text-green {
+    color: var(--accent-green);
+}
+
+.badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.badge.blue {
+    background-color: rgba(75, 121, 228, 0.15);
+    color: var(--accent-blue);
+    border: 1px solid rgba(75, 121, 228, 0.3);
+}

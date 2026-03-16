@@ -1,0 +1,442 @@
+.forge-sidebar {
+    width: 250px;
+    background-color: var(--bg-sidebar);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    padding: 16px 12px;
+    overflow-y: auto;
+    overflow-x: hidden;
+    flex-shrink: 0;
+    transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), padding 0.2s;
+}
+
+.forge-sidebar.collapsed {
+    width: 64px;
+    padding: 16px 6px;
+    align-items: center;
+}
+
+.workspace-switcher {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s;
+    width: 100%;
+}
+
+.forge-sidebar.collapsed .workspace-switcher {
+    padding: 8px;
+    justify-content: center;
+}
+
+.workspace-switcher:hover {
+    background-color: var(--bg-panel-hover);
+}
+
+.avatar {
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 14px;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.workspace-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    gap: 2px;
+}
+
+.workspace-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.2;
+    white-space: nowrap;
+}
+
+.workspace-tier {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.nav-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+.nav-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.nav-group-title {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    font-weight: 700;
+    opacity: 0.8;
+    padding: 0 12px;
+    margin-bottom: 4px;
+}
+
+.forge-sidebar.collapsed .nav-group-title {
+    text-align: center;
+    padding: 0;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 4px;
+}
+
+.repo-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    cursor: pointer;
+    padding: 6px 12px;
+    border-radius: 6px;
+    transition: background 0.2s;
+    text-transform: none;
+    font-size: 13px;
+    color: var(--text-primary);
+    letter-spacing: 0;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.repo-header-main {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    overflow: hidden;
+}
+.repo-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.forge-sidebar.collapsed .repo-header {
+    justify-content: center;
+    padding: 6px;
+}
+
+.repo-header:hover {
+    background-color: var(--bg-panel-hover);
+}
+
+.repo-tree {
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 20px;
+}
+
+.forge-sidebar.collapsed .repo-tree {
+    padding-left: 0;
+    align-items: center;
+}
+
+.repo-tree.is-open {
+    display: flex;
+}
+
+.tree-section {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tree-section-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 4px;
+    margin-left: -12px;
+}
+
+.forge-sidebar.collapsed .tree-section-title {
+    margin-left: 0;
+    justify-content: center;
+    padding: 4px;
+}
+
+.tree-section-title:hover {
+    background-color: var(--bg-panel-hover);
+}
+
+.tree-nested {
+    display: none;
+    flex-direction: column;
+    gap: 2px;
+    padding-left: 12px;
+}
+
+.forge-sidebar.collapsed .tree-nested {
+    padding-left: 0;
+    align-items: center;
+}
+
+.tree-nested.is-open {
+    display: flex;
+}
+
+.tree-item,
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    color: var(--text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    user-select: none;
+    white-space: nowrap;
+}
+
+.forge-sidebar.collapsed .tree-item,
+.forge-sidebar.collapsed .nav-item {
+    padding: 8px;
+    justify-content: center;
+}
+
+.tree-item {
+    padding: 6px 12px 6px 8px;
+}
+
+.pinned-group {
+    gap: 4px;
+}
+
+.pinned-item-row {
+    position: relative;
+    width: 100%;
+}
+
+.pinned-item-row.is-dragging {
+    opacity: 0.6;
+}
+
+.pinned-item-row.is-drop-target .pinned-item {
+    background-color: var(--bg-panel-hover);
+    box-shadow: inset 0 0 0 1px var(--accent-blue);
+}
+
+.pinned-item {
+    padding-right: 38px;
+}
+
+.pin-drag-handle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    cursor: grab;
+}
+
+.pin-unpin-btn {
+    position: absolute;
+    top: 50%;
+    right: 10px;
+    transform: translateY(-50%);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted);
+    opacity: 0;
+    cursor: pointer;
+    transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.pinned-item-row:hover .pin-unpin-btn,
+.pin-unpin-btn:focus-visible {
+    opacity: 1;
+}
+
+.pin-unpin-btn:hover {
+    background-color: var(--bg-panel-hover);
+    color: var(--text-primary);
+}
+
+.tree-item:hover,
+.nav-item:hover {
+    background-color: var(--bg-panel-hover);
+    color: var(--text-primary);
+    transform: translateX(2px);
+}
+
+.active {
+    background-color: var(--bg-active);
+    color: var(--text-primary) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.search-item {
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-app);
+    margin-bottom: 8px;
+}
+
+.kbd-shortcut {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    background: var(--bg-panel);
+    padding: 3px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--border-light);
+}
+
+.forge-sidebar.collapsed .nav-label {
+    display: none;
+}
+
+.forge-sidebar.collapsed .pinned-item {
+    padding-right: 8px;
+}
+
+.forge-sidebar.collapsed .pin-drag-handle {
+    display: none;
+}
+
+.forge-sidebar.collapsed .pin-unpin-btn {
+    right: 2px;
+}
+
+.forge-sidebar.collapsed .switch-icon {
+    display: none;
+}
+
+.switch-icon {
+    align-self: center;
+}
+
+.text-blue {
+    color: var(--accent-blue);
+}
+
+.text-yellow {
+    color: var(--accent-yellow);
+}
+
+.text-green {
+    color: var(--accent-green);
+}
+
+.text-purple {
+    color: var(--accent-purple);
+}
+
+.text-red {
+    color: var(--accent-red);
+}
+
+.text-muted {
+    color: var(--text-muted);
+}
+
+.flex-shrink-0 {
+    flex-shrink: 0;
+}
+
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.text-xs {
+    font-size: 10px;
+}
+
+.font-semibold {
+    font-weight: 600;
+}
+
+.uppercase {
+    text-transform: uppercase;
+}
+
+.tracking-wider {
+    letter-spacing: 0.05em;
+}
+
+.subtle-item {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.mt-1 {
+    margin-top: 4px;
+}
+
+.mt-2 {
+    margin-top: 8px;
+}
+
+.mb-2 {
+    margin-bottom: 8px;
+}
+
+.ml-auto {
+    margin-left: auto;
+}
+
+.mt-auto {
+    margin-top: auto;
+}
+
+.repo-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+    color: var(--text-muted);
+    cursor: pointer;
+    background: transparent;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
+}
+
+.repo-action-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.sidebar-logout-btn {
+    width: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    margin-top: 4px;
+    border-top: 1px solid var(--border-color);
+    padding-top: 8px;
+}

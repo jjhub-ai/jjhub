@@ -58,7 +58,7 @@ export function ChangeList({ owner, name, onNavigate }: ChangeListProps) {
           <List
             items={items}
             onSelect={(item) => {
-              // Future: navigate to change detail
+              onNavigate("diff", { owner, name, changeId: item.key });
             }}
           />
         )}

@@ -5,4 +5,5 @@ export { IssueDetail, type IssueDetailProps } from "./IssueDetail";
 export { LandingList, type LandingListProps } from "./LandingList";
 export { LandingDetail, type LandingDetailProps } from "./LandingDetail";
 export { ChangeList, type ChangeListProps } from "./ChangeList";
+export { DiffViewer, type DiffViewerProps } from "./DiffViewer";
 export { Search, type SearchProps } from "./Search";

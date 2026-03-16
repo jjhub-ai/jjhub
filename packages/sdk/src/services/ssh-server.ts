@@ -85,9 +85,13 @@ function ensureHostKey(hostKeyPath: string): string {
   const dir = join(hostKeyPath, "..");
   mkdirSync(dir, { recursive: true });
 
-  const { privateKey } = generateKeyPairSync("ed25519", {
+  // ssh2 requires RSA keys in PEM format (it does not support
+  // Ed25519 keys in PKCS8/PEM encoding). Use RSA-4096 which is
+  // universally supported by the ssh2 library.
+  const { privateKey } = generateKeyPairSync("rsa", {
+    modulusLength: 4096,
     publicKeyEncoding: { type: "spki", format: "pem" },
-    privateKeyEncoding: { type: "pkcs8", format: "pem" },
+    privateKeyEncoding: { type: "pkcs1", format: "pem" },
   });
 
   writeFileSync(hostKeyPath, privateKey, { mode: 0o600 });

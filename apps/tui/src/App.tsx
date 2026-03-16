@@ -9,6 +9,7 @@ import {
   LandingList,
   LandingDetail,
   ChangeList,
+  DiffViewer,
   Search,
 } from "./screens";
 
@@ -157,6 +158,16 @@ export function App({ initialRepo }: AppProps) {
         <ChangeList
           owner={params.owner ?? ""}
           name={params.name ?? ""}
+          onNavigate={navigate}
+        />
+      )}
+
+      {name === "diff" && (
+        <DiffViewer
+          owner={params.owner ?? ""}
+          name={params.name ?? ""}
+          changeId={params.changeId}
+          lrNumber={params.lrNumber}
           onNavigate={navigate}
         />
       )}

@@ -1,6 +1,14 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import { getUser, writeRouteError } from "@jjhub/sdk";
+import {
+  getUser,
+  writeRouteError,
+  type SSEEvent,
+  formatSSEEvent,
+  sseResponse,
+  sseStreamWithInitial,
+  sseStaticResponse,
+} from "@jjhub/sdk";
 import { Result } from "better-result";
 import { getServices } from "../services";
 
@@ -814,7 +822,15 @@ app.post("/api/repos/:owner/:repo/workflows/runs/:id/resume", async (c) => {
   return c.body(null, 204);
 });
 
-// GET /api/repos/:owner/:repo/runs/:id/logs — SSE stream for workflow run logs (placeholder)
+// GET /api/repos/:owner/:repo/runs/:id/logs — SSE stream for workflow run logs
+// Mirrors Go's WorkflowRunLogsStream in internal/routes/workflow_runs.go.
+//
+// Channels:
+//   - workflow_run_events_{runId}     — run status changes
+//   - workflow_step_logs_{stepId}     — per-step log lines
+//
+// Supports Last-Event-ID header for replaying missed logs after disconnect.
+// Event types: "log", "status", "done"
 app.get("/api/repos/:owner/:repo/runs/:id/logs", async (c) => {
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
@@ -826,7 +842,7 @@ app.get("/api/repos/:owner/:repo/runs/:id/logs", async (c) => {
   const steps = await workflowService.listWorkflowSteps(runID);
   const terminal = isTerminalStatus(run.status);
 
-  // Build initial status payload
+  // Build initial status payload (mirrors Go marshalWorkflowRunStatusPayload)
   const statusPayload = JSON.stringify({
     run,
     steps: steps.map((s) => ({
@@ -842,46 +858,62 @@ app.get("/api/repos/:owner/:repo/runs/:id/logs", async (c) => {
     })),
   });
 
+  // Build initial events array
+  const initialEvents: SSEEvent[] = [];
+
   // Handle Last-Event-ID replay
   const lastEventIDRaw = c.req.header("Last-Event-ID");
-  let replayLogs: string[] = [];
   if (lastEventIDRaw) {
     const lastEventID = parseInt(lastEventIDRaw, 10);
     if (!isNaN(lastEventID) && lastEventID > 0) {
       const missed = await workflowService.listWorkflowLogsSince(runID, lastEventID, 1000);
-      replayLogs = missed.map((log) => {
-        const payload = JSON.stringify({
-          log_id: log.id,
-          step: log.workflow_step_id,
-          line: log.sequence,
-          content: log.entry,
-          stream: log.stream,
+      for (const log of missed) {
+        initialEvents.push({
+          id: String(log.id),
+          type: "log",
+          data: JSON.stringify({
+            log_id: log.id,
+            step: log.workflow_step_id,
+            line: log.sequence,
+            content: log.entry,
+            stream: log.stream,
+          }),
         });
-        return `id: ${log.id}\nevent: log\ndata: ${payload}\n\n`;
-      });
+      }
     }
   }
 
-  // For SSE, we return initial state and signal done if terminal.
-  // Full live streaming requires PG LISTEN/NOTIFY which is not yet available in CE.
-  const sseBody = [
-    ...replayLogs,
-    `event: status\ndata: ${statusPayload}\n\n`,
-    ...(terminal ? [`event: done\ndata: ${statusPayload}\n\n`] : []),
-  ].join("");
+  // Always send current status
+  initialEvents.push({ type: "status", data: statusPayload });
 
-  return new Response(sseBody, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
+  // If the run is already terminal, send done and close immediately
+  if (terminal) {
+    initialEvents.push({ type: "done", data: statusPayload });
+    return sseStaticResponse(initialEvents);
+  }
+
+  // Subscribe to live events on all relevant channels
+  const sse = getServices().sse;
+  const runEventsChannel = `workflow_run_events_${runID}`;
+  const channels = [runEventsChannel];
+  for (const step of steps) {
+    channels.push(`workflow_step_logs_${step.id}`);
+  }
+
+  // Use multi-channel subscription so we can distinguish event sources
+  const liveStream = sse.subscribeMulti(channels);
+
+  const stream = sseStreamWithInitial(initialEvents, liveStream);
+  return sseResponse(stream);
 });
 
-// GET /api/repos/:owner/:repo/workflows/runs/:id/events — SSE placeholder (alias)
+// GET /api/repos/:owner/:repo/workflows/runs/:id/events — SSE workflow run events
+// Alias for workflow run event stream — mirrors /runs/:id/logs but focused on
+// status events (no log replay via Last-Event-ID).
+//
+// Channel: workflow_run_events_{runId}
+// Event types: "status", "done"
 app.get("/api/repos/:owner/:repo/workflows/runs/:id/events", async (c) => {
-  // Same logic as /runs/:id/logs — SSE placeholder for workflow run events
   const runID = parsePositiveInt64Param(c.req.param("id"), "invalid run id");
   if (runID === null) return c.json({ message: "invalid run id" }, 400);
 
@@ -907,18 +939,25 @@ app.get("/api/repos/:owner/:repo/workflows/runs/:id/events", async (c) => {
     })),
   });
 
-  const sseBody = [
-    `event: status\ndata: ${statusPayload}\n\n`,
-    ...(terminal ? [`event: done\ndata: ${statusPayload}\n\n`] : []),
-  ].join("");
+  const initialEvents: SSEEvent[] = [
+    { type: "status", data: statusPayload },
+  ];
 
-  return new Response(sseBody, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
+  // If the run is already terminal, send done and close immediately
+  if (terminal) {
+    initialEvents.push({ type: "done", data: statusPayload });
+    return sseStaticResponse(initialEvents);
+  }
+
+  // Subscribe to live run events
+  const sse = getServices().sse;
+  const channel = `workflow_run_events_${runID}`;
+  const liveStream = sse.subscribe(channel, {
+    eventType: "status",
   });
+
+  const stream = sseStreamWithInitial(initialEvents, liveStream);
+  return sseResponse(stream);
 });
 
 // ---------------------------------------------------------------------------

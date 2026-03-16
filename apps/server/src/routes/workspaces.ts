@@ -1,5 +1,11 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
+import {
+  type SSEEvent,
+  sseResponse,
+  sseStreamWithInitial,
+} from "@jjhub/sdk";
+import { getServices } from "../services";
 // NOTE: No WorkspaceService exists in the SDK service registry yet.
 // These routes remain stubbed until a workspace service is implemented.
 
@@ -625,10 +631,12 @@ app.post("/api/repos/:owner/:repo/workspace/sessions/:id/destroy", async (c) => 
 });
 
 // ---------------------------------------------------------------------------
-// Workspace SSE streams (placeholders)
+// Workspace SSE streams
 // ---------------------------------------------------------------------------
 
 // GET /api/repos/:owner/:repo/workspaces/:id/stream — SSE workspace status stream
+// Streams workspace state changes via PostgreSQL LISTEN/NOTIFY.
+// Channel: workspace_status_{workspaceId} (dashes removed from UUID)
 app.get("/api/repos/:owner/:repo/workspaces/:id/stream", async (c) => {
   const repositoryID = 0; // TODO: from repo context middleware
   const userID = 0; // TODO: from auth middleware
@@ -639,25 +647,36 @@ app.get("/api/repos/:owner/:repo/workspaces/:id/stream", async (c) => {
   const workspace = await workspaceService.getWorkspace(workspaceID, repositoryID, userID);
   if (!workspace) return c.json({ message: "workspace not found" }, 404);
 
-  // Build initial status event. Full live streaming requires PG LISTEN/NOTIFY
-  // which is not yet available in CE.
-  const statusPayload = JSON.stringify({
-    workspace_id: workspace.id,
-    status: workspace.status,
-  });
+  const sse = getServices().sse;
 
-  const sseBody = `id: 1\nevent: workspace.status\ndata: ${statusPayload}\n\n`;
+  // PG channel uses UUID without dashes (matches sqlc query: replace($1, '-', ''))
+  const channelId = workspaceID.replace(/-/g, "");
+  const channel = `workspace_status_${channelId}`;
 
-  return new Response(sseBody, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+  // Build initial status event
+  const initialEvents: SSEEvent[] = [
+    {
+      id: "1",
+      type: "workspace.status",
+      data: JSON.stringify({
+        workspace_id: workspace.id,
+        status: workspace.status,
+      }),
     },
+  ];
+
+  // Subscribe to live workspace status updates
+  const liveStream = sse.subscribe(channel, {
+    eventType: "workspace.status",
   });
+
+  const stream = sseStreamWithInitial(initialEvents, liveStream);
+  return sseResponse(stream);
 });
 
 // GET /api/repos/:owner/:repo/workspace/sessions/:id/stream — SSE session status stream
+// Streams session state changes via PostgreSQL LISTEN/NOTIFY.
+// Channel: workspace_status_{sessionId} (dashes removed from UUID)
 app.get("/api/repos/:owner/:repo/workspace/sessions/:id/stream", async (c) => {
   const repositoryID = 0; // TODO: from repo context middleware
   const userID = 0; // TODO: from auth middleware
@@ -668,21 +687,31 @@ app.get("/api/repos/:owner/:repo/workspace/sessions/:id/stream", async (c) => {
   const session = await workspaceService.getSession(sessionID, repositoryID, userID);
   if (!session) return c.json({ message: "workspace session not found" }, 404);
 
-  // Build initial status event.
-  const statusPayload = JSON.stringify({
-    session_id: session.id,
-    status: session.status,
-  });
+  const sse = getServices().sse;
 
-  const sseBody = `id: 1\nevent: workspace.session\ndata: ${statusPayload}\n\n`;
+  // PG channel uses UUID without dashes (matches sqlc query)
+  const channelId = sessionID.replace(/-/g, "");
+  const channel = `workspace_status_${channelId}`;
 
-  return new Response(sseBody, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
+  // Build initial status event
+  const initialEvents: SSEEvent[] = [
+    {
+      id: "1",
+      type: "workspace.session",
+      data: JSON.stringify({
+        session_id: session.id,
+        status: session.status,
+      }),
     },
+  ];
+
+  // Subscribe to live session status updates
+  const liveStream = sse.subscribe(channel, {
+    eventType: "workspace.session",
   });
+
+  const stream = sseStreamWithInitial(initialEvents, liveStream);
+  return sseResponse(stream);
 });
 
 export default app;

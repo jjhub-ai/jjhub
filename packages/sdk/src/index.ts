@@ -136,6 +136,18 @@ export type {
   SSHConnectionInfo,
 } from "./services/container-sandbox";
 
+// SSE (Server-Sent Events backed by PostgreSQL LISTEN/NOTIFY)
+export {
+  SSEManager,
+  formatSSEEvent,
+  validateChannel,
+  sseHeaders,
+  sseResponse,
+  sseStaticResponse,
+  sseStreamWithInitial,
+} from "./services/sse";
+export type { SSEEvent } from "./services/sse";
+
 // Cleanup (background workers)
 export { CleanupScheduler } from "./services/cleanup";
 export type {

@@ -24,6 +24,7 @@ import {
   ReleaseService,
   OAuth2Service,
   LFSService,
+  SSEManager,
 } from "@jjhub/sdk";
 
 // ---------------------------------------------------------------------------
@@ -47,6 +48,7 @@ export interface Services {
   release: ReleaseService;
   oauth2: OAuth2Service;
   lfs: LFSService;
+  sse: SSEManager;
 }
 
 // ---------------------------------------------------------------------------
@@ -61,6 +63,8 @@ let services: Services | null = null;
 export function initServices(): void {
   const db = getDb();
   const blobs = getBlobStore();
+
+  const sse = new SSEManager(db);
 
   services = {
     user: new UserService(db),
@@ -79,7 +83,13 @@ export function initServices(): void {
     release: new ReleaseService(db, blobs),
     oauth2: new OAuth2Service(db),
     lfs: new LFSService(db, blobs),
+    sse,
   };
+
+  // Start SSE manager (best-effort, non-blocking)
+  sse.start().catch((err) => {
+    console.warn("SSE manager failed to start:", err);
+  });
 }
 
 /**

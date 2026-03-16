@@ -6,6 +6,10 @@ import {
   writeError,
   writeJSON,
   writeRouteError,
+  type SSEEvent,
+  formatSSEEvent,
+  sseResponse,
+  sseStreamWithInitial,
 } from "@jjhub/sdk";
 import { Result } from "better-result";
 import { getServices } from "../services";
@@ -21,29 +25,57 @@ function service() {
 
 const app = new Hono();
 
-// GET /api/notifications (SSE endpoint placeholder)
-// In Go, this is the NotificationStream handler that uses PostgreSQL LISTEN/NOTIFY.
-// Community Edition returns a 501 for now as it requires a persistent DB connection.
+// GET /api/notifications (SSE endpoint)
+// Streams real-time notifications via PostgreSQL LISTEN/NOTIFY.
+// Mirrors Go's NotificationStream handler in internal/routes/notifications.go.
+//
+// Channel: user_notifications_{userId}
+// Supports Last-Event-ID header for reconnection replay.
+// Sends keep-alive comments every 15 seconds.
 app.get("/api/notifications", async (c) => {
   const user = getUser(c);
   if (!user) {
     return writeError(c, unauthorized("authentication required"));
   }
 
-  // SSE streaming requires a real PostgreSQL LISTEN/NOTIFY connection.
-  // The Go implementation:
-  // 1. Parses Last-Event-ID header for reconnection replay
-  // 2. Opens a dedicated PG connection for LISTEN on user_notifications_{userId}
-  // 3. Sets SSE headers (Content-Type: text/event-stream, Cache-Control: no-cache)
-  // 4. Replays missed notifications if Last-Event-ID is present
-  // 5. Enters a live loop sending events + 15s keep-alive pings
-  //
-  // For Community Edition, this is a placeholder. Real SSE would need:
-  // - A connection pool / dedicated connection for LISTEN
-  // - Streaming response support
-  return writeJSON(c, 501, {
-    message: "SSE streaming not implemented in Community Edition",
+  const sse = getServices().sse;
+  const channel = `user_notifications_${user.id}`;
+
+  // Parse Last-Event-ID header for reconnection replay
+  const initialEvents: SSEEvent[] = [];
+  const lastEventIDRaw = c.req.header("Last-Event-ID");
+  if (lastEventIDRaw) {
+    const lastEventID = parseInt(lastEventIDRaw, 10);
+    if (!isNaN(lastEventID) && lastEventID > 0) {
+      const result = await service().listNotificationsAfterID(
+        user.id,
+        lastEventID,
+        1000,
+      );
+      if (Result.isOk(result)) {
+        for (const notif of result.value) {
+          initialEvents.push({
+            id: String(notif.id),
+            type: "notification",
+            data: JSON.stringify(notif),
+          });
+        }
+      }
+    }
+  }
+
+  // Subscribe to the user's notification channel
+  const liveStream = sse.subscribe(channel, {
+    eventType: "notification",
   });
+
+  // Combine replay events with live stream
+  const stream =
+    initialEvents.length > 0
+      ? sseStreamWithInitial(initialEvents, liveStream)
+      : liveStream;
+
+  return sseResponse(stream);
 });
 
 // GET /api/notifications/list

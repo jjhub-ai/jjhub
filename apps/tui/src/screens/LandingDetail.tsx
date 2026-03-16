@@ -1,4 +1,5 @@
 import React from "react";
+import { useInput } from "ink";
 import { Box, Text, Heading, Label, Muted, ScrollView, Spinner, StatusBar } from "../primitives";
 import { useLandingDetail } from "../hooks";
 
@@ -31,6 +32,12 @@ export function LandingDetail({ owner, name, lrId, onNavigate }: LandingDetailPr
     { owner, repo: name },
     lrNumber,
   );
+
+  useInput((input) => {
+    if (input === "d" && !loading && landing) {
+      onNavigate("diff", { owner, name, lrNumber: lrId });
+    }
+  });
 
   if (loading) {
     return (
@@ -167,6 +174,7 @@ export function LandingDetail({ owner, name, lrId, onNavigate }: LandingDetailPr
       <StatusBar
         bindings={[
           { key: "j/k", label: "scroll" },
+          { key: "d", label: "diff" },
           { key: "q", label: "back" },
         ]}
         left={`${owner}/${name} !${lrId}`}

@@ -61,7 +61,6 @@ import {
 
 import {
   insertAuditLog,
-  type InsertAuditLogArgs,
 } from "../db/audit_log_sql";
 
 // ---------------------------------------------------------------------------

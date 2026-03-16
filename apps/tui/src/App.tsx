@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from "react";
-import { useInput, useApp } from "ink";
-import { Box, Text } from "./primitives";
+import React, { useState, useCallback, useMemo } from "react";
+import { useInput, useApp, useStdout } from "ink";
+import { Box, Text, ErrorBoundary, SplashScreen, HelpOverlay, buildHelpSections } from "./primitives";
+import type { HelpBinding } from "./primitives";
 import {
   Dashboard,
   RepoOverview,
@@ -34,8 +35,152 @@ export interface AppProps {
   initialRepo?: { owner: string; name: string };
 }
 
+/** Human-readable labels for screen names, used in breadcrumbs. */
+const SCREEN_LABELS: Record<string, string> = {
+  dashboard: "Dashboard",
+  repo: "Repository",
+  issues: "Issues",
+  "issue-detail": "Issue",
+  "issue-create": "New Issue",
+  landings: "Landing Requests",
+  "landing-detail": "Landing Request",
+  changes: "Changes",
+  diff: "Diff",
+  search: "Search",
+  "sync-status": "Sync Status",
+  "sync-conflicts": "Sync Conflicts",
+  "agent-sessions": "Agent Sessions",
+  "agent-chat": "Agent Chat",
+  workspaces: "Workspaces",
+  "workspace-detail": "Workspace",
+  "workspace-create": "New Workspace",
+  wiki: "Wiki",
+  "wiki-view": "Wiki Page",
+  notifications: "Notifications",
+};
+
+/** Build a breadcrumb label for a screen state. */
+function breadcrumbLabel(s: ScreenState): string {
+  const base = SCREEN_LABELS[s.name] ?? s.name;
+  // Add context like repo name, issue number
+  if (s.params.owner && s.params.name && s.name === "repo") {
+    return `${s.params.owner}/${s.params.name}`;
+  }
+  if (s.params.issueId && s.name === "issue-detail") {
+    return `#${s.params.issueId}`;
+  }
+  if (s.params.lrId && s.name === "landing-detail") {
+    return `!${s.params.lrId}`;
+  }
+  if (s.params.owner && s.params.name && !["dashboard", "repo"].includes(s.name)) {
+    return base;
+  }
+  return base;
+}
+
+/** Screen-specific help bindings for the '?' overlay. */
+function getScreenHelpBindings(screenName: string): HelpBinding[] {
+  switch (screenName) {
+    case "dashboard":
+      return [
+        { key: "Enter", label: "Open repository" },
+        { key: "Tab", label: "Switch panel" },
+        { key: "S", label: "Sync status" },
+        { key: "C", label: "Sync conflicts" },
+      ];
+    case "repo":
+      return [
+        { key: "i", label: "Issues" },
+        { key: "l", label: "Landing requests" },
+        { key: "c", label: "Changes" },
+        { key: "a", label: "Agent sessions" },
+        { key: "w", label: "Workspaces" },
+      ];
+    case "issues":
+      return [
+        { key: "Enter", label: "View issue" },
+        { key: "o", label: "Filter: open" },
+        { key: "c", label: "Filter: closed" },
+        { key: "a", label: "Filter: all" },
+      ];
+    case "issue-detail":
+      return [
+        { key: "y", label: "Copy issue URL" },
+      ];
+    case "landings":
+      return [
+        { key: "Enter", label: "View landing request" },
+        { key: "o", label: "Filter: open" },
+        { key: "m", label: "Filter: merged" },
+        { key: "c", label: "Filter: closed" },
+        { key: "a", label: "Filter: all" },
+      ];
+    case "landing-detail":
+      return [
+        { key: "d", label: "View diff" },
+        { key: "y", label: "Copy LR URL" },
+      ];
+    case "changes":
+      return [
+        { key: "Enter", label: "View diff" },
+      ];
+    case "diff":
+      return [
+        { key: "n / N", label: "Next / prev file" },
+        { key: "f", label: "Toggle file list" },
+        { key: "s", label: "Toggle side-by-side" },
+      ];
+    case "agent-sessions":
+      return [
+        { key: "n", label: "New session" },
+        { key: "d", label: "Delete session" },
+        { key: "r", label: "Refresh" },
+      ];
+    case "agent-chat":
+      return [
+        { key: "Tab", label: "Toggle input/history" },
+        { key: "Enter", label: "Send message" },
+        { key: "i", label: "Focus input" },
+      ];
+    case "workspaces":
+      return [
+        { key: "c", label: "Create workspace" },
+        { key: "s", label: "Suspend" },
+        { key: "r", label: "Resume" },
+        { key: "d", label: "Delete" },
+      ];
+    case "notifications":
+      return [
+        { key: "Enter", label: "Open + mark read" },
+        { key: "a", label: "Mark all read" },
+        { key: "u / A", label: "Filter: unread / all" },
+        { key: "r", label: "Refresh" },
+      ];
+    case "sync-status":
+      return [
+        { key: "s", label: "Sync now" },
+        { key: "c", label: "View conflicts" },
+      ];
+    case "sync-conflicts":
+      return [
+        { key: "r", label: "Resolve (accept server)" },
+        { key: "t", label: "Retry" },
+        { key: "d", label: "View details" },
+      ];
+    default:
+      return [];
+  }
+}
+
 export function App({ initialRepo }: AppProps) {
   const { exit } = useApp();
+  const { stdout } = useStdout();
+  const termWidth = stdout?.columns ?? 80;
+
+  // Compact mode for narrow terminals
+  const isCompact = termWidth < 80;
+
+  const [showSplash, setShowSplash] = useState(true);
   const [screenStack, setScreenStack] = useState<ScreenState[]>(() => {
     if (initialRepo) {
       return [
@@ -46,11 +191,12 @@ export function App({ initialRepo }: AppProps) {
     return [{ name: "dashboard", params: {} }];
   });
   const [showCommandPalette, setShowCommandPalette] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
 
   const currentScreen = screenStack[screenStack.length - 1]!;
 
-  // Derive current repo context from the screen stack (walk backward to find a repo screen)
-  const repoContext = (() => {
+  // Derive current repo context from the screen stack
+  const repoContext = useMemo(() => {
     for (let i = screenStack.length - 1; i >= 0; i--) {
       const s = screenStack[i]!;
       if (s.params.owner && s.params.name) {
@@ -58,7 +204,7 @@ export function App({ initialRepo }: AppProps) {
       }
     }
     return undefined;
-  })();
+  }, [screenStack]);
 
   const navigate = useCallback(
     (screen: string, params: Record<string, string> = {}) => {
@@ -90,7 +236,6 @@ export function App({ initialRepo }: AppProps) {
         return;
       }
 
-      // For sync-now, navigate to sync-status and trigger sync
       if (result.screen === "sync-now") {
         navigate("sync-status", {});
         return;
@@ -101,7 +246,11 @@ export function App({ initialRepo }: AppProps) {
     [exit, navigate],
   );
 
-  // Screens where the Input component is active and should consume `/`
+  const handleDismissSplash = useCallback(() => {
+    setShowSplash(false);
+  }, []);
+
+  // Screens where the Input component is active and should consume keys
   const inputActiveScreens = new Set([
     "search",
     "issue-create",
@@ -112,8 +261,21 @@ export function App({ initialRepo }: AppProps) {
   // Global keybindings
   useInput(
     (input, key) => {
-      // Don't handle keys when command palette is open
-      if (showCommandPalette) return;
+      if (showSplash || showCommandPalette) return;
+
+      // '?' toggles help overlay (except in input-active screens)
+      if (input === "?" && !inputActiveScreens.has(currentScreen.name)) {
+        setShowHelp((v) => !v);
+        return;
+      }
+
+      // When help is showing, Esc or ? closes it
+      if (showHelp) {
+        if (key.escape) {
+          setShowHelp(false);
+        }
+        return; // Consume all other keys when help is open
+      }
 
       // q to go back or quit (except in screens with text input)
       if (input === "q" && !inputActiveScreens.has(currentScreen.name)) {
@@ -133,7 +295,7 @@ export function App({ initialRepo }: AppProps) {
         return;
       }
 
-      // Global `/` opens command palette (not when in input-active screens)
+      // Global '/' opens command palette (not when in input-active screens)
       if (input === "/" && !inputActiveScreens.has(currentScreen.name)) {
         setShowCommandPalette(true);
         return;
@@ -166,34 +328,57 @@ export function App({ initialRepo }: AppProps) {
     { isActive: !showCommandPalette },
   );
 
+  // Splash screen
+  if (showSplash) {
+    return <SplashScreen version="0.0.1" onDismiss={handleDismissSplash} />;
+  }
+
   const { name, params } = currentScreen;
+
+  // Build breadcrumb trail
+  const breadcrumbs = screenStack.map((s) => breadcrumbLabel(s));
+
+  // Help overlay
+  if (showHelp) {
+    const bindings = getScreenHelpBindings(name);
+    const screenLabel = SCREEN_LABELS[name] ?? name;
+    const sections = buildHelpSections(bindings, screenLabel);
+    return (
+      <Box flexDirection="column" height="100%">
+        <HelpOverlay screenName={screenLabel} sections={sections} />
+      </Box>
+    );
+  }
 
   return (
     <Box flexDirection="column" height="100%">
-      {/* Header bar */}
+      {/* Header bar with breadcrumb trail */}
       <Box paddingX={1} justifyContent="space-between">
         <Box gap={1}>
           <Text bold color="cyan">
-            jjhub
+            JJHub
           </Text>
-          <Text dimColor>|</Text>
-          {screenStack.map((s, i) => (
+          {breadcrumbs.map((crumb, i) => (
             <React.Fragment key={i}>
-              {i > 0 && <Text dimColor>&gt;</Text>}
+              <Text dimColor>&gt;</Text>
               <Text
-                dimColor={i < screenStack.length - 1}
-                bold={i === screenStack.length - 1}
+                dimColor={i < breadcrumbs.length - 1}
+                bold={i === breadcrumbs.length - 1}
               >
-                {s.name}
+                {isCompact && crumb.length > 16 ? crumb.slice(0, 15) + "\u2026" : crumb}
               </Text>
             </React.Fragment>
           ))}
         </Box>
-        <Box gap={1}>
-          <Text dimColor>/ commands</Text>
-          <Text dimColor>|</Text>
-          <Text dimColor>v0.0.1</Text>
-        </Box>
+        {!isCompact && (
+          <Box gap={1}>
+            <Text dimColor>/ commands</Text>
+            <Text dimColor>|</Text>
+            <Text dimColor>? help</Text>
+            <Text dimColor>|</Text>
+            <Text dimColor>v0.0.1</Text>
+          </Box>
+        )}
       </Box>
 
       {/* Command palette overlay */}
@@ -207,7 +392,7 @@ export function App({ initialRepo }: AppProps) {
 
       {/* Screen content (hidden when command palette is open) */}
       {!showCommandPalette && (
-        <>
+        <ErrorBoundary context={SCREEN_LABELS[name] ?? name}>
           {name === "dashboard" && <Dashboard onNavigate={navigate} />}
 
           {name === "repo" && (
@@ -348,7 +533,7 @@ export function App({ initialRepo }: AppProps) {
           {name === "notifications" && (
             <NotificationsList onNavigate={navigate} />
           )}
-        </>
+        </ErrorBoundary>
       )}
     </Box>
   );

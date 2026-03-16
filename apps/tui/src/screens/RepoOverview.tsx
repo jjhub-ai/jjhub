@@ -1,23 +1,8 @@
 import React from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Label, Muted, Spinner, StatusBar } from "../primitives";
+import { Box, Text, Heading, Label, Spinner, StatusBar, ErrorBox } from "../primitives";
 import { useRepoDetail } from "../hooks";
-
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w ago`;
-}
+import { formatTimeAgo, theme } from "../utils";
 
 export interface RepoOverviewProps {
   owner: string;
@@ -51,7 +36,7 @@ export function RepoOverview({ owner, name, onNavigate }: RepoOverviewProps) {
   if (loading) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
-        <Spinner label="Loading repository..." />
+        <Spinner label={`Loading ${owner}/${name}...`} />
       </Box>
     );
   }
@@ -59,13 +44,14 @@ export function RepoOverview({ owner, name, onNavigate }: RepoOverviewProps) {
   if (error || !repo) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
-        <Text color="red">
-          {error ? `Error: ${error.message}` : "Repository not found"}
-        </Text>
+        <ErrorBox
+          title="Repository Error"
+          message={error ? error.message : "Repository not found"}
+          hint="Press q to go back."
+        />
+        <Box flexGrow={1} />
         <StatusBar
-          bindings={[
-            { key: "q", label: "back" },
-          ]}
+          bindings={[{ key: "q", label: "back" }]}
           left={`${owner}/${name}`}
         />
       </Box>
@@ -82,16 +68,43 @@ export function RepoOverview({ owner, name, onNavigate }: RepoOverviewProps) {
 
       <Box flexDirection="column" paddingX={2} gap={1}>
         {/* Info section */}
-        <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1}>
+        <Box flexDirection="column" borderStyle="round" borderColor={theme.border} padding={1}>
           <Text bold>Repository Info</Text>
           <Label label="Description" value={repo.description || "(no description)"} />
           <Label
             label="Visibility"
             value={repo.is_public ? "public" : "private"}
-            valueColor={repo.is_public ? "green" : "yellow"}
+            valueColor={repo.is_public ? theme.success : theme.warning}
           />
-          <Label label="Default bookmark" value={repo.default_bookmark} valueColor="cyan" />
+          <Label label="Default bookmark" value={repo.default_bookmark} valueColor={theme.info} />
           <Label label="Last updated" value={formatTimeAgo(repo.updated_at)} />
+        </Box>
+
+        {/* Quick navigation hints */}
+        <Box flexDirection="column" borderStyle="single" borderColor={theme.border} padding={1}>
+          <Text bold dimColor>Quick Navigation</Text>
+          <Box gap={2} marginTop={1}>
+            <Box gap={1}>
+              <Text color={theme.warning} bold>i</Text>
+              <Text dimColor>Issues</Text>
+            </Box>
+            <Box gap={1}>
+              <Text color={theme.warning} bold>l</Text>
+              <Text dimColor>Landing Requests</Text>
+            </Box>
+            <Box gap={1}>
+              <Text color={theme.warning} bold>c</Text>
+              <Text dimColor>Changes</Text>
+            </Box>
+            <Box gap={1}>
+              <Text color={theme.warning} bold>a</Text>
+              <Text dimColor>Agent</Text>
+            </Box>
+            <Box gap={1}>
+              <Text color={theme.warning} bold>w</Text>
+              <Text dimColor>Workspaces</Text>
+            </Box>
+          </Box>
         </Box>
       </Box>
 
@@ -99,7 +112,7 @@ export function RepoOverview({ owner, name, onNavigate }: RepoOverviewProps) {
       <StatusBar
         bindings={[
           { key: "i", label: "issues" },
-          { key: "l", label: "landing requests" },
+          { key: "l", label: "landings" },
           { key: "c", label: "changes" },
           { key: "a", label: "agent" },
           { key: "w", label: "workspaces" },

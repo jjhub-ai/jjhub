@@ -380,24 +380,32 @@ export class DatabaseAuthService implements AuthService {
   // -----------------------------------------------------------------------
 
   private sessionDuration(): number {
+    const defaultMs = 720 * 60 * 60 * 1000; // 720h in ms
     const raw = this.cfg.sessionDuration;
-    if (!raw) return 720 * 60 * 60 * 1000; // 720h in ms
+    if (!raw) return defaultMs;
 
     // Parse Go-style duration strings like "720h", "30m", "24h"
     const match = raw.match(/^(\d+)(h|m|s)$/);
-    if (!match) return 720 * 60 * 60 * 1000;
+    if (!match) return defaultMs;
 
     const value = parseInt(match[1]!, 10);
+    let ms: number;
     switch (match[2]!) {
       case "h":
-        return value * 60 * 60 * 1000;
+        ms = value * 60 * 60 * 1000;
+        break;
       case "m":
-        return value * 60 * 1000;
+        ms = value * 60 * 1000;
+        break;
       case "s":
-        return value * 1000;
+        ms = value * 1000;
+        break;
       default:
-        return 720 * 60 * 60 * 1000;
+        return defaultMs;
     }
+    // Match Go: if duration <= 0, fall back to default
+    if (ms <= 0) return defaultMs;
+    return ms;
   }
 
   private keyAuthExpectedDomain(): string {

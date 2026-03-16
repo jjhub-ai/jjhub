@@ -35,7 +35,7 @@ import {
 import {
   listUserAccessTokens,
   createAccessToken,
-  deleteAccessToken,
+  deleteAccessTokenByIDAndUserIDQuery,
   listUserEmails,
   upsertEmailAddress,
   getEmailByID,
@@ -51,9 +51,14 @@ import {
 import {
   getOrgByID,
 } from "../db/orgs_sql";
+import {
+  listPublicAuditLogsByActor,
+  countPublicAuditLogsByActor,
+} from "../db/audit_log_sql";
 
 import {
-  type APIError,
+  APIError,
+  type FieldError,
   notFound,
   badRequest,
   internal,
@@ -166,6 +171,24 @@ export interface UpdateNotificationPreferencesRequest {
   email_notifications_enabled?: boolean;
 }
 
+export interface ActivitySummary {
+  id: number;
+  event_type: string;
+  action: string;
+  actor_username: string;
+  target_type: string;
+  target_name: string;
+  summary: string;
+  created_at: string;
+}
+
+export interface ActivityListResult {
+  items: ActivitySummary[];
+  total_count: number;
+  page: number;
+  per_page: number;
+}
+
 export interface ConnectedAccountResponse {
   id: number;
   provider: string;
@@ -182,30 +205,7 @@ const USER_DEFAULT_PER_PAGE = 30;
 const USER_MAX_PER_PAGE = 100;
 const TOKEN_PREFIX = "jjhub_";
 
-// Valid token scopes matching Go's middleware.NormalizeTokenScope
-const VALID_SCOPES = new Set([
-  "all",
-  "read:user",
-  "write:user",
-  "read:repository",
-  "write:repository",
-  "read:organization",
-  "write:organization",
-  "read:issue",
-  "write:issue",
-  "read:package",
-  "write:package",
-  "read:admin",
-  "write:admin",
-  "admin",
-  "read:notification",
-  "write:notification",
-  "read:misc",
-  "write:misc",
-  "read:activitypub",
-  "write:activitypub",
-]);
-
+// Privileged scopes — matches Go's containsPrivilegedScope
 const PRIVILEGED_SCOPES = new Set([
   "admin",
   "read:admin",
@@ -532,6 +532,53 @@ export class UserService {
     });
   }
 
+  // ---- Activity ----
+
+  async listUserActivityByUsername(
+    username: string,
+    page: number,
+    perPage: number
+  ): Promise<Result<ActivityListResult, APIError>> {
+    const trimmed = username.trim();
+    if (trimmed === "") {
+      return Result.err(badRequest("username is required"));
+    }
+
+    const user = await getUserByLowerUsername(this.sql, {
+      lowerUsername: trimmed.toLowerCase(),
+    });
+    if (!user) {
+      return Result.err(notFound("user not found"));
+    }
+
+    const p = normalizePagination(page, perPage);
+    const offset = (p.page - 1) * p.perPage;
+
+    const totalRow = await countPublicAuditLogsByActor(this.sql, {
+      actorId: user.id,
+      since: new Date(0), // All time
+    });
+    const total = totalRow ? Number(totalRow.count) : 0;
+
+    const logs = await listPublicAuditLogsByActor(this.sql, {
+      actorId: user.id,
+      since: new Date(0), // All time
+      pageLimit: String(p.perPage),
+      pageOffset: String(offset),
+    });
+
+    const items: ActivitySummary[] = logs.map((log) =>
+      mapActivitySummary(log)
+    );
+
+    return Result.ok({
+      items,
+      total_count: total,
+      page: p.page,
+      per_page: p.perPage,
+    });
+  }
+
   // ---- Notification preferences ----
 
   async getNotificationPreferences(
@@ -659,15 +706,14 @@ export class UserService {
       );
     }
 
-    const normalizedScopes = normalizeAndValidateScopes(req.scopes);
-    if (!normalizedScopes) {
-      return Result.err(
-        validationFailed({
-          resource: "AccessToken",
-          field: "scopes",
-          code: "invalid",
-        })
-      );
+    let normalizedScopes: string[];
+    try {
+      normalizedScopes = normalizeAndValidateScopes(req.scopes);
+    } catch (err) {
+      if (err instanceof APIError) {
+        return Result.err(err);
+      }
+      return Result.err(internal("failed to validate scopes"));
     }
 
     // Check privileged scopes
@@ -716,10 +762,13 @@ export class UserService {
       return Result.err(badRequest("invalid token id"));
     }
 
-    await deleteAccessToken(this.sql, {
-      id: String(tokenID),
-      userId: String(userID),
-    });
+    const result = await this.sql.unsafe(deleteAccessTokenByIDAndUserIDQuery, [
+      String(tokenID),
+      String(userID),
+    ]);
+    if (result.count === 0) {
+      return Result.err(notFound("token not found"));
+    }
 
     return Result.ok(undefined);
   }
@@ -747,7 +796,7 @@ export class UserService {
     sessionKey: string
   ): Promise<Result<void, APIError>> {
     const trimmed = sessionKey.trim();
-    if (trimmed === "") {
+    if (trimmed === "" || !isValidUUID(trimmed)) {
       return Result.err(notFound("session not found"));
     }
 
@@ -908,6 +957,48 @@ export class UserService {
       }));
 
     return Result.ok(result);
+  }
+
+  async getSSHKeyByIDForUser(
+    userID: number,
+    keyID: number
+  ): Promise<
+    Result<
+      {
+        id: number;
+        name: string;
+        fingerprint: string;
+        key_type: string;
+        created_at: string;
+      },
+      APIError
+    >
+  > {
+    if (userID <= 0) {
+      return Result.err(badRequest("invalid user"));
+    }
+    if (keyID <= 0) {
+      return Result.err(badRequest("invalid ssh key id"));
+    }
+
+    const key = await getSSHKeyByID(this.sql, { id: String(keyID) });
+    if (!key) {
+      return Result.err(notFound("ssh key not found"));
+    }
+    if (key.userId !== String(userID)) {
+      return Result.err(notFound("ssh key not found"));
+    }
+
+    return Result.ok({
+      id: Number(key.id),
+      name: key.name,
+      fingerprint: key.fingerprint,
+      key_type: key.keyType,
+      created_at:
+        key.createdAt instanceof Date
+          ? key.createdAt.toISOString()
+          : String(key.createdAt),
+    });
   }
 
   async createSSHKey(
@@ -1194,6 +1285,94 @@ function mapRepoSummary(
 }
 
 // ---------------------------------------------------------------------------
+// Activity mapping — matches Go's mapActivitySummary + formatActivitySummary
+// ---------------------------------------------------------------------------
+
+function mapActivitySummary(log: {
+  id: string;
+  eventType: string;
+  action: string;
+  actorName: string;
+  targetType: string;
+  targetName: string;
+  createdAt: Date;
+}): ActivitySummary {
+  return {
+    id: Number(log.id),
+    event_type: log.eventType,
+    action: log.action,
+    actor_username: log.actorName.trim(),
+    target_type: log.targetType,
+    target_name: log.targetName,
+    summary: formatActivitySummary(log),
+    created_at:
+      log.createdAt instanceof Date
+        ? log.createdAt.toISOString()
+        : String(log.createdAt),
+  };
+}
+
+function formatActivitySummary(log: {
+  eventType: string;
+  action: string;
+  targetName: string;
+}): string {
+  const targetName = log.targetName.trim();
+
+  switch (log.eventType) {
+    case "repo.create":
+      return formatActivityWithTarget("created repository", targetName);
+    case "repo.delete":
+      return formatActivityWithTarget("deleted repository", targetName);
+    case "repo.archive":
+      return formatActivityWithTarget("archived repository", targetName);
+    case "repo.unarchive":
+      return formatActivityWithTarget("unarchived repository", targetName);
+    case "repo.transfer":
+      return formatActivityWithTarget("transferred repository", targetName);
+    case "repo.fork":
+      return formatActivityWithTarget("forked repository", targetName);
+    default: {
+      if (targetName !== "" && log.action.trim() !== "") {
+        return log.action.trim() + " " + targetName;
+      }
+      if (targetName !== "") {
+        return targetName;
+      }
+      return log.eventType.replace(/\./g, " ");
+    }
+  }
+}
+
+function formatActivityWithTarget(verb: string, targetName: string): string {
+  if (targetName === "") return verb;
+  return verb + " " + targetName;
+}
+
+// ---------------------------------------------------------------------------
+// UUID validation — matches Go's isValidUUID
+// ---------------------------------------------------------------------------
+
+function isValidUUID(s: string): boolean {
+  if (s.length !== 36) return false;
+  for (let i = 0; i < s.length; i++) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) {
+      if (s[i] !== "-") return false;
+    } else {
+      const ch = s.charCodeAt(i);
+      if (
+        !(ch >= 0x30 && ch <= 0x39) && // 0-9
+        !(ch >= 0x61 && ch <= 0x66) && // a-f
+        !(ch >= 0x41 && ch <= 0x46) // A-F
+      ) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Token helpers — match Go's auth.go helpers
 // ---------------------------------------------------------------------------
 
@@ -1205,21 +1384,80 @@ function splitScopes(raw: string): string[] {
     .filter((s) => s !== "");
 }
 
-function normalizeAndValidateScopes(scopes: string[]): string[] | null {
+/**
+ * Normalize a raw scope string to its canonical form.
+ * Matches Go's middleware.NormalizeTokenScope exactly — same aliases, same output.
+ */
+function normalizeTokenScope(raw: string): string {
+  const scope = raw.trim().toLowerCase();
+  if (scope === "") return "";
+
+  switch (scope) {
+    case "all":
+      return "all";
+    case "admin":
+      return "admin";
+    case "read:admin":
+    case "admin:read":
+      return "read:admin";
+    case "write:admin":
+    case "admin:write":
+      return "write:admin";
+    case "repo":
+    case "repository":
+    case "write:repository":
+      return "write:repository";
+    case "read:repository":
+      return "read:repository";
+    case "org":
+    case "organization":
+    case "write:organization":
+      return "write:organization";
+    case "read:organization":
+      return "read:organization";
+    case "user":
+    case "write:user":
+      return "write:user";
+    case "read:user":
+      return "read:user";
+    default:
+      return "";
+  }
+}
+
+/**
+ * Normalize and validate an array of requested scopes.
+ * Matches Go's normalizeAndValidateRequestedScopes — returns per-index
+ * validation errors, deduplicates, and sorts.
+ */
+function normalizeAndValidateScopes(scopes: string[]): string[] {
   const seen = new Set<string>();
   const normalized: string[] = [];
+  const validationErrors: FieldError[] = [];
 
-  for (const rawScope of scopes) {
-    const scope = rawScope.trim().toLowerCase();
-    if (!VALID_SCOPES.has(scope)) {
-      return null;
+  for (let i = 0; i < scopes.length; i++) {
+    const scope = normalizeTokenScope(scopes[i]!);
+    if (scope === "") {
+      validationErrors.push({
+        resource: "AccessToken",
+        field: `scopes[${i}]`,
+        code: "invalid",
+      });
+      continue;
     }
-    if (seen.has(scope)) continue;
-    seen.add(scope);
-    normalized.push(scope);
+
+    if (!seen.has(scope)) {
+      seen.add(scope);
+      normalized.push(scope);
+    }
   }
 
-  return normalized.length > 0 ? normalized : null;
+  if (validationErrors.length > 0) {
+    throw validationFailed(...validationErrors);
+  }
+
+  normalized.sort();
+  return normalized;
 }
 
 function containsPrivilegedScope(scopes: string[]): boolean {

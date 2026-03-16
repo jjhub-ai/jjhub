@@ -126,7 +126,7 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: CreateWorkflowTask :one
-INSERT INTO workflow_tasks (workflow_run_id, workflow_step_id, repository_id, status, priority, payload, available_at, freestyle_vm_id)
+INSERT INTO workflow_tasks (workflow_run_id, workflow_step_id, repository_id, status, priority, payload, available_at, vm_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
@@ -138,10 +138,10 @@ FROM workflow_tasks
 WHERE status = 'pending'
   AND available_at <= NOW();
 
--- name: MarkWorkflowTaskFreestyleRunning :execrows
+-- name: MarkWorkflowTaskVMRunning :execrows
 UPDATE workflow_tasks
 SET status = 'running',
-    freestyle_vm_id = sqlc.arg(freestyle_vm_id),
+    vm_id = sqlc.arg(vm_id),
     started_at = COALESCE(started_at, NOW()),
     updated_at = NOW()
 WHERE id = sqlc.arg(id)

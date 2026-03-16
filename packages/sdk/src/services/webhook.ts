@@ -101,7 +101,7 @@ const maxWebhooksPerRepo = 20;
 // HMAC signature — matches Go's webhook.signPayload / VerifyPayloadSignature
 // ---------------------------------------------------------------------------
 
-function signPayload(secret: string, payload: Uint8Array): string {
+export function signPayload(secret: string, payload: Uint8Array): string {
   const mac = createHmac("sha256", secret);
   mac.update(payload);
   return "sha256=" + mac.digest("hex");
@@ -134,6 +134,44 @@ export function verifyPayloadSignature(
   const expected = mac.digest();
 
   return timingSafeEqual(expected, provided);
+}
+
+// ---------------------------------------------------------------------------
+// Delivery retry — matches Go's webhook.CalculateNextRetry
+// ---------------------------------------------------------------------------
+
+const retrySchedule = [1_000, 10_000, 60_000]; // 1s, 10s, 60s (ms)
+
+/**
+ * Calculate the next retry timestamp for a failed delivery attempt.
+ * Returns null when retries are exhausted (attempt >= schedule length).
+ * Matches Go's CalculateNextRetry.
+ */
+export function calculateNextRetry(
+  attempt: number,
+  now: Date,
+): Date | null {
+  if (attempt < 1 || attempt > retrySchedule.length) return null;
+  return new Date(now.getTime() + retrySchedule[attempt - 1]!);
+}
+
+// ---------------------------------------------------------------------------
+// Auto-disable — matches Go's shouldDisableWebhook
+// ---------------------------------------------------------------------------
+
+const maxFailureStreak = 10;
+
+/**
+ * Returns true when a webhook should be auto-disabled due to consecutive failures.
+ * Expects `recentStatuses` ordered newest-first (most recent delivery first).
+ * Matches Go's shouldDisableWebhook.
+ */
+export function shouldDisableWebhook(recentStatuses: string[]): boolean {
+  if (recentStatuses.length < maxFailureStreak) return false;
+  for (let i = 0; i < maxFailureStreak; i++) {
+    if (recentStatuses[i] !== "failed") return false;
+  }
+  return true;
 }
 
 // ---------------------------------------------------------------------------

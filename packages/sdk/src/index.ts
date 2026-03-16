@@ -123,6 +123,17 @@ export type {
 } from "./services/repohost";
 export { SSHServer, createSSHServer } from "./services/ssh-server";
 export type { SSHServerConfig } from "./services/ssh-server";
+export { WorkspaceService } from "./services/workspace";
+export type {
+  WorkspaceResponse,
+  WorkspaceSessionResponse,
+  WorkspaceSSHConnectionInfo,
+  WorkspaceSnapshotResponse,
+  CreateWorkspaceInput,
+  ForkWorkspaceInput,
+  CreateWorkspaceSnapshotInput,
+  CreateWorkspaceSessionInput,
+} from "./services/workspace";
 export { ContainerSandboxClient } from "./services/container-sandbox";
 export type {
   ContainerRuntime,

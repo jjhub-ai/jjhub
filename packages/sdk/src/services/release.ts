@@ -1093,11 +1093,10 @@ export class ReleaseService {
       this.signedURLExpiryMs
     );
 
-    // Increment download count (fire and forget)
-    incrementReleaseAssetDownloadCount(this.sql, {
-      releaseId: release.id,
-      id: String(assetID),
-    }).catch(() => {});
+    await incrementReleaseAssetDownloadCount(this.sql, {
+      releaseId: asset.releaseId,
+      id: asset.id,
+    });
 
     return {
       asset: {

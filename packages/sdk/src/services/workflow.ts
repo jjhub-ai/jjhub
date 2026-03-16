@@ -29,6 +29,10 @@ import {
 } from "../db/workflows_sql";
 
 import {
+  updateWorkflowRunAgentToken,
+} from "../db/workflow_runs_agent_tokens_sql";
+
+import {
   listWorkflowStepsByRunID,
   listWorkflowLogsSince,
 } from "../db/workflow_logs_sql";
@@ -374,6 +378,8 @@ function matchesOn(on: WorkflowOnConfig, event: TriggerEvent): boolean {
   }
 }
 
+export { evaluateIfExpression, ifExpressionReferencesNeeds };
+
 export function matchTrigger(
   configJSON: unknown,
   event: TriggerEvent
@@ -424,39 +430,195 @@ function validateDAG(jobs: JobConfig[]): string | null {
   for (const job of jobs) {
     if (!job.needs) continue;
     for (const dep of job.needs) {
+      if (dep === job.name) {
+        return `job "${job.name}" has a self-dependency`;
+      }
       if (!nameSet.has(dep)) {
         return `job "${job.name}" depends on unknown job "${dep}"`;
       }
     }
   }
 
-  // Cycle detection via topological sort
-  const visited = new Set<string>();
-  const stack = new Set<string>();
-  const jobMap = new Map(jobs.map((j) => [j.name, j]));
+  // Cycle detection (white/gray/black coloring — matches Go)
+  const WHITE = 0;
+  const GRAY = 1;
+  const BLACK = 2;
+  const color = new Map<string, number>();
+  const adj = new Map<string, string[]>();
+  for (const job of jobs) {
+    color.set(job.name, WHITE);
+    adj.set(job.name, job.needs ?? []);
+  }
 
-  function hasCycle(name: string): boolean {
-    if (stack.has(name)) return true;
-    if (visited.has(name)) return false;
-    visited.add(name);
-    stack.add(name);
-    const job = jobMap.get(name);
-    if (job?.needs) {
-      for (const dep of job.needs) {
-        if (hasCycle(dep)) return true;
+  function visit(name: string): string | null {
+    color.set(name, GRAY);
+    for (const dep of adj.get(name) ?? []) {
+      const depColor = color.get(dep) ?? WHITE;
+      if (depColor === GRAY) {
+        return `dependency cycle detected involving job "${dep}"`;
+      }
+      if (depColor === WHITE) {
+        const err = visit(dep);
+        if (err) return err;
       }
     }
-    stack.delete(name);
-    return false;
+    color.set(name, BLACK);
+    return null;
   }
 
   for (const job of jobs) {
-    if (hasCycle(job.name)) {
-      return `workflow DAG contains a cycle involving "${job.name}"`;
+    if (color.get(job.name) === WHITE) {
+      const err = visit(job.name);
+      if (err) return err;
     }
   }
 
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// If-expression evaluation — matches Go's EvaluateIfExpression
+// ---------------------------------------------------------------------------
+
+function ifExpressionReferencesNeeds(expr: string): boolean {
+  const trimmed = expr.trim();
+  if (trimmed.includes("needs.")) return true;
+  if (
+    trimmed.includes("success()") ||
+    trimmed.includes("failure()") ||
+    trimmed.includes("cancelled()")
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function evaluateIfExpression(
+  expr: string,
+  event: TriggerEvent,
+  needsResults: Record<string, string> | null,
+): { ok: boolean; error?: string } {
+  const trimmed = expr.trim();
+
+  // Empty condition defaults to true
+  if (trimmed === "") return { ok: true };
+
+  // always() function returns true
+  if (trimmed === "always()") return { ok: true };
+
+  // Conjunction support (&&)
+  const parts = trimmed.split("&&");
+  if (parts.length > 1) {
+    for (const part of parts) {
+      const result = evaluateIfAtom(part.trim(), event, needsResults);
+      if (result.error) return result;
+      if (!result.ok) return { ok: false };
+    }
+    return { ok: true };
+  }
+
+  return evaluateIfAtom(trimmed, event, needsResults);
+}
+
+function evaluateIfAtom(
+  expr: string,
+  event: TriggerEvent,
+  needsResults: Record<string, string> | null,
+): { ok: boolean; error?: string } {
+  const trimmed = expr.trim();
+
+  if (trimmed === "" || trimmed === "always()") return { ok: true };
+
+  // Built-in status functions
+  if (trimmed === "success()") {
+    if (!needsResults || Object.keys(needsResults).length === 0) {
+      return { ok: true };
+    }
+    for (const result of Object.values(needsResults)) {
+      if (result !== "success") return { ok: false };
+    }
+    return { ok: true };
+  }
+  if (trimmed === "failure()") {
+    return {
+      ok: anyNeedsStatus(needsResults, (r) => r === "failure"),
+    };
+  }
+  if (trimmed === "cancelled()") {
+    return {
+      ok: anyNeedsStatus(needsResults, (r) => r === "cancelled"),
+    };
+  }
+
+  // needs.JOB.result == "value" / != "value"
+  const needsRe = /^needs\.([a-zA-Z0-9_-]+)\.result\s*(==|!=)\s*"([^"]*)"$/;
+  const needsMatch = needsRe.exec(trimmed);
+  if (needsMatch) {
+    const jobName = needsMatch[1]!;
+    const op = needsMatch[2]!;
+    const value = needsMatch[3]!;
+    const result = needsResults?.[jobName];
+    if (result === undefined) return { ok: false };
+    if (op === "==") return { ok: result === value };
+    return { ok: result !== value };
+  }
+
+  // inputs.FIELD == "value" / != "value"
+  const inputRe = /^inputs\.([a-zA-Z0-9_]+)\s*(==|!=)\s*"([^"]*)"$/;
+  const inputMatch = inputRe.exec(trimmed);
+  if (inputMatch) {
+    const field = inputMatch[1]!;
+    const op = inputMatch[2]!;
+    const value = inputMatch[3]!;
+    const inputValue = event.inputs?.[field];
+    if (inputValue === undefined) return { ok: false };
+    const match = String(inputValue) === value;
+    if (op === "==") return { ok: match };
+    return { ok: !match };
+  }
+
+  // contains(inputs.FIELD, "value") / !contains(...)
+  const containsRe = /^(!)?contains\(inputs\.([a-zA-Z0-9_]+),\s*"([^"]*)"\)$/;
+  const containsMatch = containsRe.exec(trimmed);
+  if (containsMatch) {
+    const negated = containsMatch[1] === "!";
+    const field = containsMatch[2]!;
+    const value = containsMatch[3]!;
+    const inputValue = event.inputs?.[field];
+    if (inputValue === undefined) return { ok: false };
+    const match = inputContains(inputValue, value);
+    return { ok: negated ? !match : match };
+  }
+
+  // trigger.type == "value" / != "value"
+  const triggerRe = /^trigger\.type\s*(==|!=)\s*"([^"]*)"$/;
+  const triggerMatch = triggerRe.exec(trimmed);
+  if (triggerMatch) {
+    const op = triggerMatch[1]!;
+    const value = triggerMatch[2]!;
+    if (op === "==") return { ok: event.type === value };
+    return { ok: event.type !== value };
+  }
+
+  return { ok: false, error: `unsupported if expression: ${trimmed}` };
+}
+
+function anyNeedsStatus(
+  needsResults: Record<string, string> | null,
+  matchFn: (result: string) => boolean,
+): boolean {
+  if (!needsResults) return false;
+  for (const result of Object.values(needsResults)) {
+    if (matchFn(result)) return true;
+  }
+  return false;
+}
+
+function inputContains(value: unknown, target: string): boolean {
+  if (Array.isArray(value)) {
+    return value.some((item) => String(item) === target);
+  }
+  return String(value) === target;
 }
 
 // ---------------------------------------------------------------------------
@@ -950,10 +1112,14 @@ export class WorkflowService {
     if (!run) return Result.err(internal("failed to create workflow run"));
     result.workflowRunId = run.id;
 
-    // Generate and store agent token
+    // Generate and store agent token — matches Go's generateAgentToken + UpdateWorkflowRunAgentToken
     const { plaintext: agentToken, hash: tokenHash } = generateAgentToken();
-    // Agent token update is done inline since updateWorkflowRunAgentToken
-    // may not be available as a generated query — we store it in payload instead.
+    const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    await updateWorkflowRunAgentToken(this.sql, {
+      agentTokenHash: tokenHash,
+      agentTokenExpiresAt: tokenExpiry,
+      id: run.id,
+    });
 
     // Parse jobs from config
     const jobs = parseJobsFromConfig(def.config);
@@ -977,11 +1143,19 @@ export class WorkflowService {
     for (let pos = 0; pos < jobs.length; pos++) {
       const job = jobs[pos]!;
 
+      // If the expression references needs.*, defer evaluation until
+      // dependencies resolve — treat as runnable but blocked.
+      const deferIf = job.if !== undefined && ifExpressionReferencesNeeds(job.if);
+
       let shouldRun = true;
-      // Simple if expression evaluation: skip if literal "false"
-      if (job.if !== undefined) {
-        const expr = job.if.trim().toLowerCase();
-        if (expr === "false") shouldRun = false;
+      if (!deferIf && job.if !== undefined) {
+        const evalResult = evaluateIfExpression(job.if, input.event, null);
+        if (evalResult.error) {
+          return Result.err(
+            badRequest(`invalid if expression for job ${job.name}: ${evalResult.error}`)
+          );
+        }
+        shouldRun = evalResult.ok;
       }
 
       let stepStatus = "queued";

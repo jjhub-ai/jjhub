@@ -803,7 +803,7 @@ CREATE TABLE IF NOT EXISTS workflow_tasks (
     available_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     attempt           INTEGER NOT NULL DEFAULT 0,
     runner_id         BIGINT,
-    freestyle_vm_id   TEXT,
+    vm_id             TEXT,
     assigned_at       TIMESTAMPTZ,
     started_at        TIMESTAMPTZ,
     finished_at       TIMESTAMPTZ,
@@ -818,9 +818,9 @@ CREATE INDEX idx_workflow_tasks_pending_dequeue
 CREATE INDEX idx_workflow_tasks_runner_id
     ON workflow_tasks (runner_id)
     WHERE runner_id IS NOT NULL;
-CREATE INDEX idx_workflow_tasks_freestyle_vm_id
-    ON workflow_tasks (freestyle_vm_id)
-    WHERE freestyle_vm_id IS NOT NULL;
+CREATE INDEX idx_workflow_tasks_vm_id
+    ON workflow_tasks (vm_id)
+    WHERE vm_id IS NOT NULL;
 CREATE INDEX idx_workflow_tasks_payload_gin ON workflow_tasks USING GIN (payload);
 
 CREATE TABLE IF NOT EXISTS workflow_logs (
@@ -1250,7 +1250,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
     is_fork           BOOLEAN NOT NULL DEFAULT FALSE,
     parent_workspace_id TEXT NOT NULL DEFAULT '',
     source_snapshot_id TEXT NOT NULL DEFAULT '',
-    freestyle_vm_id   TEXT NOT NULL DEFAULT '',
+    vm_id             TEXT NOT NULL DEFAULT '',
     status            VARCHAR(16) NOT NULL DEFAULT 'pending'
                       CHECK (status IN ('pending', 'starting', 'running', 'suspended', 'stopped', 'failed')),
     last_activity_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -1266,7 +1266,7 @@ CREATE UNIQUE INDEX uq_workspaces_active ON workspaces (repository_id, user_id)
     WHERE is_fork = FALSE
       AND (
           status IN ('running', 'suspended')
-          OR (status = 'starting' AND freestyle_vm_id <> '')
+          OR (status = 'starting' AND vm_id <> '')
       );
 CREATE INDEX idx_workspaces_status ON workspaces (status) WHERE status IN ('pending', 'starting', 'running', 'suspended');
 
@@ -1276,7 +1276,7 @@ CREATE TABLE IF NOT EXISTS workspace_snapshots (
     user_id               BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     workspace_id          TEXT NOT NULL DEFAULT '',
     name                  TEXT NOT NULL,
-    freestyle_snapshot_id TEXT NOT NULL DEFAULT '',
+    snapshot_id           TEXT NOT NULL DEFAULT '',
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -1723,6 +1723,90 @@ CREATE TABLE IF NOT EXISTS issue_artifacts (
 CREATE INDEX idx_issue_artifacts_repo_id ON issue_artifacts (repository_id, created_at DESC);
 CREATE INDEX idx_issue_artifacts_issue_id ON issue_artifacts (issue_id, created_at DESC);
 CREATE INDEX idx_issue_artifacts_expires_at ON issue_artifacts (expires_at);
+
+-- Sandbox host fleet inventory and capacity
+CREATE TABLE IF NOT EXISTS sandbox_hosts (
+    id                     TEXT PRIMARY KEY,
+    provider               TEXT NOT NULL,
+    region                 TEXT NOT NULL,
+    zone                   TEXT NOT NULL,
+    instance_name          TEXT NOT NULL,
+    private_addr           TEXT NOT NULL,
+    state                  TEXT NOT NULL DEFAULT 'healthy'
+                           CHECK (state IN ('healthy', 'draining', 'unhealthy', 'deleted')),
+    firecracker_version    TEXT NOT NULL,
+    kernel_image_version   TEXT NOT NULL,
+    cpu_capacity           INTEGER NOT NULL,
+    mem_capacity_mb        INTEGER NOT NULL,
+    disk_capacity_bytes    BIGINT NOT NULL,
+    cpu_allocated          INTEGER NOT NULL DEFAULT 0,
+    mem_allocated_mb       INTEGER NOT NULL DEFAULT 0,
+    disk_allocated_bytes   BIGINT NOT NULL DEFAULT 0,
+    last_seen_at           TIMESTAMPTZ NOT NULL,
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_sandbox_hosts_state ON sandbox_hosts (state) WHERE state IN ('healthy', 'draining');
+
+-- Sandbox VM runtime metadata
+CREATE TABLE IF NOT EXISTS sandbox_vms (
+    id                 TEXT PRIMARY KEY,
+    workspace_id       UUID REFERENCES workspaces(id),
+    agent_session_id   UUID REFERENCES agent_sessions(id),
+    workflow_run_id    BIGINT REFERENCES workflow_runs(id),
+    host_id            TEXT NOT NULL REFERENCES sandbox_hosts(id),
+    kind               TEXT NOT NULL CHECK (kind IN ('workspace', 'preview', 'agent', 'workflow')),
+    state              TEXT NOT NULL DEFAULT 'starting'
+                       CHECK (state IN ('starting', 'running', 'suspended', 'stopped', 'failed', 'deleting')),
+    guest_ip           TEXT NOT NULL DEFAULT '',
+    guest_cid          INTEGER NOT NULL DEFAULT 0,
+    vcpus              INTEGER NOT NULL,
+    memory_mb          INTEGER NOT NULL,
+    rootfs_size_mb     BIGINT NOT NULL,
+    disk_ref           TEXT NOT NULL DEFAULT '',
+    snapshot_ref       TEXT NOT NULL DEFAULT '',
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_sandbox_vms_host_id ON sandbox_vms (host_id);
+CREATE INDEX idx_sandbox_vms_workspace_id ON sandbox_vms (workspace_id) WHERE workspace_id IS NOT NULL;
+CREATE INDEX idx_sandbox_vms_state ON sandbox_vms (state) WHERE state IN ('starting', 'running', 'suspended');
+
+-- Sandbox access tokens for SSH/terminal/preview
+CREATE TABLE IF NOT EXISTS sandbox_access_tokens (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    workspace_id    UUID REFERENCES workspaces(id),
+    vm_id           TEXT NOT NULL,
+    user_id         BIGINT NOT NULL REFERENCES users(id),
+    linux_user      TEXT NOT NULL,
+    token_hash      BYTEA NOT NULL,
+    token_type      TEXT NOT NULL CHECK (token_type IN ('ssh', 'terminal')),
+    expires_at      TIMESTAMPTZ NOT NULL,
+    used_at         TIMESTAMPTZ,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_sandbox_access_tokens_vm_id ON sandbox_access_tokens (vm_id);
+CREATE INDEX idx_sandbox_access_tokens_expires_at ON sandbox_access_tokens (expires_at);
+
+-- Sandbox long-running control-plane operations
+CREATE TABLE IF NOT EXISTS sandbox_operations (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    vm_id           TEXT NOT NULL,
+    workspace_id    UUID,
+    op_type         TEXT NOT NULL,
+    state           TEXT NOT NULL DEFAULT 'pending'
+                    CHECK (state IN ('pending', 'running', 'done', 'failed')),
+    metadata        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    error           TEXT NOT NULL DEFAULT '',
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_sandbox_operations_vm_id ON sandbox_operations (vm_id);
+CREATE INDEX idx_sandbox_operations_state ON sandbox_operations (state) WHERE state IN ('pending', 'running');
 
 -- Sync queue for local-first daemon mode
 CREATE TABLE IF NOT EXISTS _sync_queue (

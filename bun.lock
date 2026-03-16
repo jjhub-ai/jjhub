@@ -29,6 +29,7 @@
       "dependencies": {
         "@jjhub/sdk": "workspace:*",
         "@jjhub/server": "workspace:*",
+        "@jjhub/ui-core": "workspace:*",
         "electrobun": "latest",
       },
     },
@@ -50,6 +51,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@jjhub/sdk": "workspace:*",
+        "@jjhub/ui-core": "workspace:*",
         "ink": "^5.1.0",
         "ink-spinner": "^5.0.0",
         "ink-text-input": "^6.0.0",
@@ -69,6 +71,7 @@
       "dependencies": {
         "@git-diff-view/shiki": "^0.1.2",
         "@git-diff-view/solid": "^0.1.2",
+        "@jjhub/ui-core": "workspace:*",
         "@microsoft/fetch-event-source": "^2.0.1",
         "@nanostores/solid": "^1.1.1",
         "@sentry/solid": "^10.43.0",
@@ -124,10 +127,12 @@
         "@electric-sql/pglite": "latest",
         "better-result": "latest",
         "hono": "latest",
+        "js-yaml": "^4.1.1",
         "postgres": "latest",
         "ssh2": "latest",
       },
       "devDependencies": {
+        "@types/js-yaml": "^4.0.9",
         "@types/ssh2": "latest",
       },
     },
@@ -905,6 +910,8 @@
     "@types/estree": ["@types/estree@1.0.8", "", {}, "sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w=="],
 
     "@types/hast": ["@types/hast@3.0.4", "", { "dependencies": { "@types/unist": "*" } }, "sha512-WPs+bbQw5aCj+x6laNGWLH3wviHtoCv/P3+otBhbOhJgG8qtpdAMlTCxLtsTWA7LH1Oh/bFCHsBn0TPS5m30EQ=="],
+
+    "@types/js-yaml": ["@types/js-yaml@4.0.9", "", {}, "sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg=="],
 
     "@types/json-schema": ["@types/json-schema@7.0.15", "", {}, "sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA=="],
 

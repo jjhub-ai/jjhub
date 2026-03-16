@@ -1,4 +1,4 @@
--- ---- Workspace (Freestyle VM lifecycle) ----
+-- ---- Workspace (Sandbox VM lifecycle) ----
 
 -- name: CreateWorkspace :one
 INSERT INTO workspaces (
@@ -48,7 +48,7 @@ WHERE repository_id = $1
   AND is_fork = FALSE
   AND (
     status IN ('running', 'suspended')
-    OR (status = 'starting' AND freestyle_vm_id <> '')
+    OR (status = 'starting' AND vm_id <> '')
   )
 LIMIT 1;
 
@@ -66,7 +66,7 @@ RETURNING *;
 
 -- name: UpdateWorkspaceExecutionInfo :one
 UPDATE workspaces
-SET freestyle_vm_id = $2,
+SET vm_id = $2,
     status = sqlc.arg(status)::text,
     suspended_at = CASE
         WHEN sqlc.arg(status)::text = 'suspended' THEN NOW()
@@ -92,7 +92,7 @@ INSERT INTO workspace_snapshots (
     user_id,
     workspace_id,
     name,
-    freestyle_snapshot_id
+    snapshot_id
 )
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
@@ -230,7 +230,7 @@ WHERE w.status = 'running'
 SELECT *
 FROM workspaces
 WHERE status IN ('pending', 'starting')
-  AND freestyle_vm_id = ''
+  AND vm_id = ''
   AND updated_at < NOW() - make_interval(secs => sqlc.arg(stale_after_secs)::int)
 ORDER BY updated_at ASC;
 

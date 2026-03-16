@@ -34,3 +34,18 @@ export type { OutputAccessor, InferOutputEntry } from "smithers-orchestrator";
 // Trigger builders.
 export { on } from "./triggers";
 export type { TriggerDescriptor } from "./triggers";
+
+// Workspace, preview, and CI DSL.
+export { defineWorkspace, definePreview, defineCI } from "./workspace";
+export type {
+  WorkspaceConfig,
+  WorkspaceDefinition,
+  PreviewConfig,
+  PreviewDefinition,
+  ServiceConfig,
+  WorkspaceHandle,
+  CIConfig,
+  CIDefinition,
+  CIStepConfig,
+  CIGroupConfig,
+} from "./workspace";

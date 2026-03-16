@@ -25,6 +25,8 @@ import {
   OAuth2Service,
   LFSService,
   SSEManager,
+  WorkspaceService,
+  ContainerSandboxClient,
 } from "@jjhub/sdk";
 
 // ---------------------------------------------------------------------------
@@ -49,6 +51,7 @@ export interface Services {
   oauth2: OAuth2Service;
   lfs: LFSService;
   sse: SSEManager;
+  workspace: WorkspaceService;
 }
 
 // ---------------------------------------------------------------------------
@@ -65,6 +68,17 @@ export function initServices(): void {
   const blobs = getBlobStore();
 
   const sse = new SSEManager(db);
+
+  // Container sandbox client — attempt detection (null if no runtime found)
+  let sandbox: ContainerSandboxClient | null = null;
+  try {
+    sandbox = ContainerSandboxClient.withRuntime(
+      (process.env.JJHUB_CONTAINER_RUNTIME as "docker" | "podman") ?? "docker",
+      process.env.JJHUB_WORKSPACE_SSH_HOST ?? "localhost"
+    );
+  } catch {
+    console.warn("Container sandbox client unavailable — workspace features disabled");
+  }
 
   services = {
     user: new UserService(db),
@@ -84,6 +98,11 @@ export function initServices(): void {
     oauth2: new OAuth2Service(db),
     lfs: new LFSService(db, blobs),
     sse,
+    workspace: new WorkspaceService(db, sandbox, {
+      sshHost: process.env.JJHUB_WORKSPACE_SSH_HOST ?? "localhost",
+      username: process.env.JJHUB_WORKSPACE_USERNAME ?? "root",
+      persistence: process.env.JJHUB_WORKSPACE_PERSISTENCE ?? "persistent",
+    }),
   };
 
   // Start SSE manager (best-effort, non-blocking)

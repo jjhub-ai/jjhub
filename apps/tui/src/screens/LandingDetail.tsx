@@ -1,66 +1,21 @@
 import React from "react";
-import { Box, Text, Heading, Label, Muted, ScrollView, StatusBar } from "../primitives";
+import { Box, Text, Heading, Label, Muted, ScrollView, Spinner, StatusBar } from "../primitives";
+import { useLandingDetail } from "../hooks";
 
-// Mock data — will be replaced with @jjhub/sdk calls
-const MOCK_LR = {
-  id: 42,
-  title: "Add stacked change support",
-  state: "open",
-  author: "wcory",
-  bookmark: "feat/stacked-changes",
-  targetBookmark: "main",
-  created: "1 day ago",
-  updated: "3 hours ago",
-  description: `This LR adds full support for stacked changes in the landing queue.
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
-When multiple changes are stacked on top of each other, the landing queue
-will process them in dependency order, rebasing as needed.
-
-## Changes
-
-1. **Add change dependency graph** - Parse jj op log to build the dependency DAG
-2. **Landing queue rebase** - Rebase dependent changes after a parent lands
-3. **UI indicators** - Show stack depth and position in the web UI`,
-  changes: [
-    { changeId: "kxyzpqr", description: "Add change dependency graph parser", files: 4, insertions: 187, deletions: 12 },
-    { changeId: "mwvutsr", description: "Implement landing queue rebase for stacks", files: 6, insertions: 342, deletions: 45 },
-    { changeId: "nqponml", description: "Add stack indicators to landing request API", files: 3, insertions: 89, deletions: 8 },
-  ],
-  checks: [
-    { name: "build", status: "pass" },
-    { name: "test", status: "pass" },
-    { name: "lint", status: "pass" },
-    { name: "e2e", status: "running" },
-  ],
-  reviewers: [
-    { user: "smithers", status: "approved" },
-  ],
-};
-
-function checkColor(status: string): string {
-  switch (status) {
-    case "pass":
-      return "green";
-    case "fail":
-      return "red";
-    case "running":
-      return "yellow";
-    default:
-      return "gray";
-  }
-}
-
-function checkIcon(status: string): string {
-  switch (status) {
-    case "pass":
-      return "\u2714";
-    case "fail":
-      return "\u2718";
-    case "running":
-      return "\u25CB";
-    default:
-      return "?";
-  }
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w ago`;
 }
 
 export interface LandingDetailProps {
@@ -71,13 +26,37 @@ export interface LandingDetailProps {
 }
 
 export function LandingDetail({ owner, name, lrId, onNavigate }: LandingDetailProps) {
+  const lrNumber = parseInt(lrId, 10);
+  const { landing, comments, reviews, changes, loading, error } = useLandingDetail(
+    { owner, repo: name },
+    lrNumber,
+  );
+
+  if (loading) {
+    return (
+      <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
+        <Spinner label="Loading landing request..." />
+      </Box>
+    );
+  }
+
+  if (error || !landing) {
+    return (
+      <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
+        <Text color="red">
+          {error ? `Error: ${error.message}` : "Landing request not found"}
+        </Text>
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1} gap={1}>
-        <Text color="gray">!{lrId}</Text>
-        <Heading>{MOCK_LR.title}</Heading>
-        <Text color={MOCK_LR.state === "open" ? "green" : "cyan"} bold>
-          [{MOCK_LR.state}]
+        <Text color="gray">!{landing.number}</Text>
+        <Heading>{landing.title}</Heading>
+        <Text color={landing.state === "open" ? "green" : landing.state === "merged" ? "cyan" : "red"} bold>
+          [{landing.state}]
         </Text>
       </Box>
 
@@ -85,13 +64,13 @@ export function LandingDetail({ owner, name, lrId, onNavigate }: LandingDetailPr
         {/* Metadata */}
         <Box key="meta" flexDirection="column" paddingX={2} paddingY={1}>
           <Box flexDirection="row" gap={4}>
-            <Label label="Author" value={MOCK_LR.author} valueColor="cyan" />
-            <Label label="Created" value={MOCK_LR.created} />
-            <Label label="Updated" value={MOCK_LR.updated} />
+            <Label label="Author" value={landing.author.login} valueColor="cyan" />
+            <Label label="Created" value={formatTimeAgo(landing.created_at)} />
+            <Label label="Updated" value={formatTimeAgo(landing.updated_at)} />
           </Box>
           <Box flexDirection="row" gap={4}>
-            <Label label="Source" value={MOCK_LR.bookmark} valueColor="green" />
-            <Label label="Target" value={MOCK_LR.targetBookmark} valueColor="yellow" />
+            <Label label="Target" value={landing.target_bookmark} valueColor="yellow" />
+            <Label label="Conflict" value={landing.conflict_status} valueColor={landing.conflict_status === "clean" ? "green" : "red"} />
           </Box>
         </Box>
 
@@ -104,62 +83,85 @@ export function LandingDetail({ owner, name, lrId, onNavigate }: LandingDetailPr
           borderColor="gray"
         >
           <Text bold>Description</Text>
-          <Text>{MOCK_LR.description}</Text>
+          <Text>{landing.body || "(no description)"}</Text>
         </Box>
 
         {/* Changes (stacked) */}
         <Box key="changes-header" paddingX={2} paddingY={1}>
-          <Text bold>Changes ({MOCK_LR.changes.length} stacked)</Text>
+          <Text bold>Changes ({landing.stack_size} stacked)</Text>
         </Box>
-        {MOCK_LR.changes.map((change, i) => (
+        {changes.map((change) => (
           <Box
-            key={`change-${i}`}
+            key={`change-${change.id}`}
             flexDirection="column"
             paddingX={3}
           >
             <Box gap={1}>
               <Text color="magenta" bold>
-                {change.changeId}
+                {change.change_id}
               </Text>
-              <Text>{change.description}</Text>
-            </Box>
-            <Box paddingLeft={1}>
-              <Muted>
-                {change.files} files | +{change.insertions} -{change.deletions}
-              </Muted>
+              <Muted>position {change.position_in_stack}</Muted>
             </Box>
           </Box>
         ))}
-
-        {/* Checks */}
-        <Box key="checks-header" paddingX={2} paddingY={1}>
-          <Text bold>Checks</Text>
-        </Box>
-        {MOCK_LR.checks.map((check) => (
-          <Box key={check.name} paddingX={3} gap={1}>
-            <Text color={checkColor(check.status)}>
-              {checkIcon(check.status)}
-            </Text>
-            <Text>{check.name}</Text>
-            <Text color={checkColor(check.status)}>{check.status}</Text>
-          </Box>
-        ))}
+        {changes.length === 0 && landing.change_ids.length > 0 && (
+          <>
+            {landing.change_ids.map((cid) => (
+              <Box key={cid} paddingX={3}>
+                <Text color="magenta" bold>{cid}</Text>
+              </Box>
+            ))}
+          </>
+        )}
 
         {/* Reviewers */}
-        <Box key="reviewers-header" paddingX={2} paddingY={1}>
-          <Text bold>Reviewers</Text>
-        </Box>
-        {MOCK_LR.reviewers.map((r) => (
-          <Box key={r.user} paddingX={3} gap={1}>
-            <Text color={r.status === "approved" ? "green" : "yellow"}>
-              {r.status === "approved" ? "\u2714" : "\u25CB"}
-            </Text>
-            <Text color="cyan">@{r.user}</Text>
-            <Text color={r.status === "approved" ? "green" : "yellow"}>
-              {r.status}
-            </Text>
-          </Box>
-        ))}
+        {reviews.length > 0 && (
+          <>
+            <Box key="reviewers-header" paddingX={2} paddingY={1}>
+              <Text bold>Reviews</Text>
+            </Box>
+            {reviews.map((r) => (
+              <Box key={r.id} paddingX={3} gap={1}>
+                <Text color={r.type === "approve" ? "green" : r.type === "request_changes" ? "red" : "yellow"}>
+                  {r.type === "approve" ? "\u2714" : r.type === "request_changes" ? "\u2718" : "\u25CB"}
+                </Text>
+                <Text color="cyan">@{r.reviewer.login}</Text>
+                <Text color={r.type === "approve" ? "green" : r.type === "request_changes" ? "red" : "yellow"}>
+                  {r.type}
+                </Text>
+              </Box>
+            ))}
+          </>
+        )}
+
+        {/* Comments */}
+        {comments.length > 0 && (
+          <>
+            <Box key="comments-header" paddingX={2} paddingY={1}>
+              <Text dimColor>
+                {"--- Comments (" + comments.length + ") ---"}
+              </Text>
+            </Box>
+            {comments.map((comment) => (
+              <Box
+                key={`comment-${comment.id}`}
+                flexDirection="column"
+                paddingX={2}
+                paddingY={0}
+                borderStyle="single"
+                borderColor="gray"
+              >
+                <Box gap={2}>
+                  <Text color="cyan" bold>
+                    @{comment.author.login}
+                  </Text>
+                  <Muted>{formatTimeAgo(comment.created_at)}</Muted>
+                </Box>
+                <Text>{comment.body}</Text>
+              </Box>
+            ))}
+          </>
+        )}
       </ScrollView>
 
       <StatusBar

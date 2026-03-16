@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { logger } from "hono/logger";
 import { cors } from "hono/cors";
 
-import { initDb, initDbSync, closeDb, getDbMode } from "@jjhub/sdk";
+import { initDb, initDbSync, closeDb, getDb, getDbMode, getBlobStore, CleanupScheduler } from "@jjhub/sdk";
 import {
   requestId,
   authLoader,
@@ -47,6 +47,12 @@ startSSHServer().catch((err) => {
   console.error("Failed to start SSH server:", err.message);
   // Non-fatal: HTTP server continues without SSH support
 });
+
+// Start background cleanup workers
+const cleanupScheduler = new CleanupScheduler(getDb(), {
+  blobStore: getBlobStore(),
+});
+cleanupScheduler.start();
 
 // ---------------------------------------------------------------------------
 // App setup
@@ -99,6 +105,7 @@ console.log(`JJHub Community Edition starting on port ${port}`);
 // Graceful shutdown
 process.on("SIGINT", async () => {
   console.log("Shutting down...");
+  cleanupScheduler.stop();
   await stopSSHServer();
   await closeDb();
   process.exit(0);
@@ -106,6 +113,7 @@ process.on("SIGINT", async () => {
 
 process.on("SIGTERM", async () => {
   console.log("Shutting down...");
+  cleanupScheduler.stop();
   await stopSSHServer();
   await closeDb();
   process.exit(0);

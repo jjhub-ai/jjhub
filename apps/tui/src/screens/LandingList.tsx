@@ -1,30 +1,39 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, List, StatusBar, type ListItem } from "../primitives";
+import { Box, Text, Heading, List, Spinner, StatusBar, type ListItem } from "../primitives";
+import { useLandings } from "../hooks";
 
-type LRState = "open" | "landed" | "rejected" | "all";
-
-// Mock data — will be replaced with @jjhub/sdk calls
-const MOCK_LRS = [
-  { id: 42, title: "Add stacked change support", state: "open", author: "wcory", bookmark: "feat/stacked-changes", changes: 3, created: "1d ago" },
-  { id: 41, title: "Fix landing queue serialization", state: "open", author: "smithers", bookmark: "fix/queue", changes: 1, created: "2d ago" },
-  { id: 40, title: "Implement org-level permissions", state: "open", author: "wcory", bookmark: "feat/org-perms", changes: 5, created: "3d ago" },
-  { id: 39, title: "Add SSE reconnect logic", state: "landed", author: "wcory", bookmark: "fix/sse-reconnect", changes: 2, created: "4d ago" },
-  { id: 38, title: "CLI: workflow run command", state: "landed", author: "smithers", bookmark: "feat/workflow-run", changes: 4, created: "5d ago" },
-  { id: 37, title: "Broken webhook delivery", state: "rejected", author: "wcory", bookmark: "fix/webhooks", changes: 1, created: "1w ago" },
-];
+type LRState = "open" | "merged" | "closed" | "all";
 
 function stateColor(state: string): string {
   switch (state) {
     case "open":
       return "green";
-    case "landed":
+    case "merged":
       return "cyan";
-    case "rejected":
+    case "closed":
       return "red";
+    case "draft":
+      return "gray";
     default:
       return "white";
   }
+}
+
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w ago`;
 }
 
 export interface LandingListProps {
@@ -35,23 +44,31 @@ export interface LandingListProps {
 
 export function LandingList({ owner, name, onNavigate }: LandingListProps) {
   const [filter, setFilter] = useState<LRState>("open");
+  const { landings, loading, error } = useLandings({ owner, repo: name });
 
-  const filtered = MOCK_LRS.filter((lr) => {
-    if (filter === "all") return true;
-    return lr.state === filter;
-  });
+  const filtered = useMemo(() => {
+    if (!landings) return [];
+    return landings.filter((lr) => {
+      if (filter === "all") return true;
+      return lr.state === filter;
+    });
+  }, [landings, filter]);
 
-  const items: ListItem[] = filtered.map((lr) => ({
-    key: String(lr.id),
-    label: `!${lr.id} ${lr.title}`,
-    description: `${lr.bookmark} (${lr.changes} changes) by ${lr.author} ${lr.created}`,
-    badge: { text: lr.state, color: stateColor(lr.state) },
-  }));
+  const items: ListItem[] = useMemo(
+    () =>
+      filtered.map((lr) => ({
+        key: String(lr.number),
+        label: `!${lr.number} ${lr.title}`,
+        description: `${lr.target_bookmark} (${lr.stack_size} changes) by ${lr.author.login} ${formatTimeAgo(lr.created_at)}`,
+        badge: { text: lr.state, color: stateColor(lr.state) },
+      })),
+    [filtered],
+  );
 
   useInput((input) => {
     if (input === "o") setFilter("open");
-    if (input === "l") setFilter("landed");
-    if (input === "r") setFilter("rejected");
+    if (input === "m") setFilter("merged");
+    if (input === "c") setFilter("closed");
     if (input === "a") setFilter("all");
   });
 
@@ -62,7 +79,7 @@ export function LandingList({ owner, name, onNavigate }: LandingListProps) {
           Landing Requests - {owner}/{name}
         </Heading>
         <Box gap={1}>
-          {(["open", "landed", "rejected", "all"] as const).map((f) => (
+          {(["open", "merged", "closed", "all"] as const).map((f) => (
             <Text
               key={f}
               bold={filter === f}
@@ -75,16 +92,22 @@ export function LandingList({ owner, name, onNavigate }: LandingListProps) {
       </Box>
 
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
-        <List
-          items={items}
-          onSelect={(item) => {
-            onNavigate("landing-detail", {
-              owner,
-              name,
-              lrId: item.key,
-            });
-          }}
-        />
+        {loading ? (
+          <Spinner label="Loading landing requests..." />
+        ) : error ? (
+          <Text color="red">Error: {error.message}</Text>
+        ) : (
+          <List
+            items={items}
+            onSelect={(item) => {
+              onNavigate("landing-detail", {
+                owner,
+                name,
+                lrId: item.key,
+              });
+            }}
+          />
+        )}
       </Box>
 
       <StatusBar
@@ -92,8 +115,8 @@ export function LandingList({ owner, name, onNavigate }: LandingListProps) {
           { key: "j/k", label: "navigate" },
           { key: "Enter", label: "view" },
           { key: "o", label: "open" },
-          { key: "l", label: "landed" },
-          { key: "r", label: "rejected" },
+          { key: "m", label: "merged" },
+          { key: "c", label: "closed" },
           { key: "a", label: "all" },
           { key: "q", label: "back" },
         ]}

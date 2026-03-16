@@ -45,7 +45,8 @@ function requireAdmin(c: any): { error?: Response } {
 }
 
 // ---------------------------------------------------------------------------
-// Service stubs
+// Service stubs — admin-specific methods are not yet in the SDK service layer.
+// These stubs will be replaced when admin service methods are added to the SDK.
 // ---------------------------------------------------------------------------
 
 const userService = {

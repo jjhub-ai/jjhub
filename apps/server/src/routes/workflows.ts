@@ -98,8 +98,8 @@ async function resolveRepoId(c: Context): Promise<string> {
 /**
  * Unwrap a Result value, throwing the error if it's an error.
  */
-function unwrap<T>(result: { isOk(): boolean; value: T; error: any }): T {
-  if (!result.isOk()) throw result.error;
+function unwrap<T>(result: any): T {
+  if (Result.isError(result)) throw result.error;
   return result.value;
 }
 
@@ -181,7 +181,10 @@ const workflowService = {
       repositoryId: String(input.repositoryID),
       userId: String(input.userID),
       workflowDefinitionId: input.workflowDefinitionID != null ? String(input.workflowDefinitionID) : undefined,
-      event: input.event,
+      event: {
+        ...input.event,
+        commitSHA: "",
+      },
     }));
     return result as unknown as WorkflowRunResult[];
   },

@@ -241,8 +241,8 @@ interface OrgRouteService {
  * Unwrap a Result value, throwing the error if it is an error.
  * This adapts the Result-returning OrgService to the throw-based route pattern.
  */
-function unwrap<T>(result: { isOk(): boolean; value: T; error: any }): T {
-  if (!result.isOk()) throw result.error;
+function unwrap<T>(result: any): T {
+  if (Result.isError(result)) throw result.error;
   return result.value;
 }
 
@@ -475,7 +475,7 @@ app.get("/api/orgs/:org/repos", async (c) => {
     const orgName = routeParam(c, "org", "organization name is required");
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = unwrap(await orgService().listOrgRepos(
+    const { items, total } = unwrap<{ items: Repository[]; total: number }>(await orgService().listOrgRepos(
       userFromContext(c),
       orgName,
       page,
@@ -496,7 +496,7 @@ app.get("/api/orgs/:org/members", async (c) => {
     const orgName = routeParam(c, "org", "organization name is required");
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = unwrap(await orgService().listOrgMembers(
+    const { items, total } = unwrap<{ items: ListOrgMembersRow[]; total: number }>(await orgService().listOrgMembers(
       user,
       orgName,
       page,
@@ -556,7 +556,7 @@ app.get("/api/orgs/:org/teams", async (c) => {
     const orgName = routeParam(c, "org", "organization name is required");
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = unwrap(await orgService().listOrgTeams(
+    const { items, total } = unwrap<{ items: Team[]; total: number }>(await orgService().listOrgTeams(
       user,
       orgName,
       page,
@@ -655,7 +655,7 @@ app.get("/api/orgs/:org/teams/:team/members", async (c) => {
     const teamName = routeParam(c, "team", "team name is required");
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = unwrap(await orgService().listTeamMembers(
+    const { items, total } = unwrap<{ items: User[]; total: number }>(await orgService().listTeamMembers(
       user,
       orgName,
       teamName,
@@ -708,7 +708,7 @@ app.get("/api/orgs/:org/teams/:team/repos", async (c) => {
     const teamName = routeParam(c, "team", "team name is required");
     const { page, perPage } = parsePagination(c);
 
-    const { items, total } = unwrap(await orgService().listTeamRepos(
+    const { items, total } = unwrap<{ items: Repository[]; total: number }>(await orgService().listTeamRepos(
       user,
       orgName,
       teamName,

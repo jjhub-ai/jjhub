@@ -95,7 +95,8 @@ function normalizeAgentMessagePartContent(
 }
 
 // ---------------------------------------------------------------------------
-// Service stub
+// Service stub — agent service not fully implemented in the SDK yet.
+// These stubs will be replaced when the agent service is added.
 // ---------------------------------------------------------------------------
 
 const service = {

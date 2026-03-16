@@ -1,20 +1,23 @@
 import React from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Label, Muted, StatusBar } from "../primitives";
+import { Box, Text, Heading, Label, Muted, Spinner, StatusBar } from "../primitives";
+import { useRepoDetail } from "../hooks";
 
-// Mock data — will be replaced with @jjhub/sdk calls
-const MOCK_REPO = {
-  fullName: "jjhub-ai/jjhub",
-  description: "jj-native code hosting platform",
-  defaultBookmark: "main",
-  bookmarks: ["main", "feat/tui", "feat/stacked-changes", "fix/ssh-auth"],
-  issueCount: 12,
-  openLRCount: 3,
-  changeCount: 847,
-  stars: 42,
-  visibility: "public" as const,
-  lastUpdated: "2 hours ago",
-};
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w ago`;
+}
 
 export interface RepoOverviewProps {
   owner: string;
@@ -23,6 +26,8 @@ export interface RepoOverviewProps {
 }
 
 export function RepoOverview({ owner, name, onNavigate }: RepoOverviewProps) {
+  const { repo, loading, error } = useRepoDetail({ owner, repo: name });
+
   useInput((input) => {
     switch (input) {
       case "i":
@@ -37,6 +42,30 @@ export function RepoOverview({ owner, name, onNavigate }: RepoOverviewProps) {
     }
   });
 
+  if (loading) {
+    return (
+      <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
+        <Spinner label="Loading repository..." />
+      </Box>
+    );
+  }
+
+  if (error || !repo) {
+    return (
+      <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
+        <Text color="red">
+          {error ? `Error: ${error.message}` : "Repository not found"}
+        </Text>
+        <StatusBar
+          bindings={[
+            { key: "q", label: "back" },
+          ]}
+          left={`${owner}/${name}`}
+        />
+      </Box>
+    );
+  }
+
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1}>
@@ -49,42 +78,14 @@ export function RepoOverview({ owner, name, onNavigate }: RepoOverviewProps) {
         {/* Info section */}
         <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1}>
           <Text bold>Repository Info</Text>
-          <Label label="Description" value={MOCK_REPO.description} />
-          <Label label="Visibility" value={MOCK_REPO.visibility} valueColor="green" />
-          <Label label="Default bookmark" value={MOCK_REPO.defaultBookmark} valueColor="cyan" />
-          <Label label="Last updated" value={MOCK_REPO.lastUpdated} />
-        </Box>
-
-        {/* Stats */}
-        <Box flexDirection="row" gap={4}>
-          <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} width={20}>
-            <Text bold color="yellow">Issues</Text>
-            <Text bold>{String(MOCK_REPO.issueCount)}</Text>
-          </Box>
-          <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} width={20}>
-            <Text bold color="magenta">Landing Requests</Text>
-            <Text bold>{String(MOCK_REPO.openLRCount)}</Text>
-          </Box>
-          <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} width={20}>
-            <Text bold color="cyan">Changes</Text>
-            <Text bold>{String(MOCK_REPO.changeCount)}</Text>
-          </Box>
-          <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1} width={20}>
-            <Text bold color="green">Stars</Text>
-            <Text bold>{String(MOCK_REPO.stars)}</Text>
-          </Box>
-        </Box>
-
-        {/* Bookmarks */}
-        <Box flexDirection="column" borderStyle="round" borderColor="gray" padding={1}>
-          <Text bold>Bookmarks</Text>
-          {MOCK_REPO.bookmarks.map((b) => (
-            <Box key={b} gap={1}>
-              <Text color={b === MOCK_REPO.defaultBookmark ? "green" : "white"}>
-                {b === MOCK_REPO.defaultBookmark ? "*" : " "} {b}
-              </Text>
-            </Box>
-          ))}
+          <Label label="Description" value={repo.description || "(no description)"} />
+          <Label
+            label="Visibility"
+            value={repo.is_public ? "public" : "private"}
+            valueColor={repo.is_public ? "green" : "yellow"}
+          />
+          <Label label="Default bookmark" value={repo.default_bookmark} valueColor="cyan" />
+          <Label label="Last updated" value={formatTimeAgo(repo.updated_at)} />
         </Box>
       </Box>
 

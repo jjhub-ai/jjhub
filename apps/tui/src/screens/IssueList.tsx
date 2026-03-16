@@ -1,23 +1,28 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, List, StatusBar, type ListItem } from "../primitives";
+import { Box, Text, Heading, List, Spinner, StatusBar, type ListItem } from "../primitives";
+import { useIssues } from "../hooks";
 
 type IssueState = "open" | "closed" | "all";
 
-// Mock data — will be replaced with @jjhub/sdk calls
-const MOCK_ISSUES = [
-  { id: 145, title: "Fix SSH key rotation on session expiry", state: "open", labels: ["bug", "auth"], author: "wcory", comments: 3, created: "2h ago" },
-  { id: 142, title: "Add stacked change rebase on conflict", state: "open", labels: ["enhancement"], author: "smithers", comments: 1, created: "1d ago" },
-  { id: 139, title: "Workflow runner timeout not respected", state: "open", labels: ["bug", "runner"], author: "wcory", comments: 7, created: "2d ago" },
-  { id: 137, title: "Support org-level workflow secrets", state: "open", labels: ["enhancement"], author: "wcory", comments: 0, created: "3d ago" },
-  { id: 135, title: "Landing queue deadlock with concurrent LRs", state: "open", labels: ["bug", "critical"], author: "smithers", comments: 12, created: "4d ago" },
-  { id: 130, title: "Add webhook retry with backoff", state: "closed", labels: ["enhancement"], author: "wcory", comments: 2, created: "1w ago" },
-  { id: 128, title: "CLI: add --json flag to all commands", state: "closed", labels: ["cli"], author: "wcory", comments: 0, created: "1w ago" },
-  { id: 125, title: "SSE connection drops after 30s idle", state: "closed", labels: ["bug"], author: "smithers", comments: 5, created: "2w ago" },
-];
-
 function stateColor(state: string): string {
   return state === "open" ? "green" : "red";
+}
+
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w ago`;
 }
 
 export interface IssueListProps {
@@ -28,18 +33,26 @@ export interface IssueListProps {
 
 export function IssueList({ owner, name, onNavigate }: IssueListProps) {
   const [filter, setFilter] = useState<IssueState>("open");
+  const { issues, loading, error } = useIssues({ owner, repo: name });
 
-  const filtered = MOCK_ISSUES.filter((issue) => {
-    if (filter === "all") return true;
-    return issue.state === filter;
-  });
+  const filtered = useMemo(() => {
+    if (!issues) return [];
+    return issues.filter((issue) => {
+      if (filter === "all") return true;
+      return issue.state === filter;
+    });
+  }, [issues, filter]);
 
-  const items: ListItem[] = filtered.map((issue) => ({
-    key: String(issue.id),
-    label: `#${issue.id} ${issue.title}`,
-    description: `by ${issue.author} ${issue.created}`,
-    badge: { text: issue.state, color: stateColor(issue.state) },
-  }));
+  const items: ListItem[] = useMemo(
+    () =>
+      filtered.map((issue) => ({
+        key: String(issue.number),
+        label: `#${issue.number} ${issue.title}`,
+        description: `by ${issue.author.login} ${formatTimeAgo(issue.created_at)}`,
+        badge: { text: issue.state, color: stateColor(issue.state) },
+      })),
+    [filtered],
+  );
 
   useInput((input) => {
     if (input === "o") setFilter("open");
@@ -67,16 +80,22 @@ export function IssueList({ owner, name, onNavigate }: IssueListProps) {
       </Box>
 
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
-        <List
-          items={items}
-          onSelect={(item) => {
-            onNavigate("issue-detail", {
-              owner,
-              name,
-              issueId: item.key,
-            });
-          }}
-        />
+        {loading ? (
+          <Spinner label="Loading issues..." />
+        ) : error ? (
+          <Text color="red">Error: {error.message}</Text>
+        ) : (
+          <List
+            items={items}
+            onSelect={(item) => {
+              onNavigate("issue-detail", {
+                owner,
+                name,
+                issueId: item.key,
+              });
+            }}
+          />
+        )}
       </Box>
 
       <StatusBar

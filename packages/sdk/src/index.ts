@@ -66,6 +66,12 @@ export { OrgService } from "./services/org";
 export { WikiService } from "./services/wiki";
 export { SearchService } from "./services/search";
 export { WebhookService } from "./services/webhook";
+export {
+  WebhookWorker,
+  createWebhookWorker,
+  dispatchWebhookEvent,
+} from "./services/webhook-worker";
+export type { WebhookWorkerOptions, WebhookTask } from "./services/webhook-worker";
 export { WorkflowService } from "./services/workflow";
 export { NotificationService } from "./services/notification";
 export { SecretService } from "./services/secret";
@@ -102,6 +108,13 @@ export type {
   ExecResult,
   SSHConnectionInfo,
 } from "./services/container-sandbox";
+
+// Cleanup (background workers)
+export { CleanupScheduler } from "./services/cleanup";
+export type {
+  CleanupSchedulerConfig,
+  SweepResult,
+} from "./services/cleanup";
 
 // Sync (local-first daemon mode)
 export { SyncService, createSyncService } from "./services/sync";

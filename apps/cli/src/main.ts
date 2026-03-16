@@ -31,6 +31,7 @@ import { release } from "./commands/release.js";
 import { serve } from "./commands/serve.js";
 import { daemon } from "./commands/daemon.js";
 import { health } from "./commands/health.js";
+import { tui } from "./commands/tui.js";
 
 const ROOT_FLAGS_WITH_VALUES = new Set([
   "--filter-output",
@@ -322,7 +323,8 @@ const cli = Cli.create("jjhub", {
   .command(apiCmd)
   .command(serve)
   .command(daemon)
-  .command(health);
+  .command(health)
+  .command(tui);
 
 const outputBuffer: string[] = [];
 let exitCode = 0;

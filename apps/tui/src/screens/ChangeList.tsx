@@ -1,19 +1,22 @@
-import React from "react";
-import { Box, Text, Heading, List, StatusBar, type ListItem } from "../primitives";
+import React, { useMemo } from "react";
+import { Box, Text, Heading, List, Spinner, StatusBar, type ListItem } from "../primitives";
+import { useChanges } from "../hooks";
 
-// Mock data — will be replaced with @jjhub/sdk calls
-const MOCK_CHANGES = [
-  { changeId: "kxyzpqr", description: "Add change dependency graph parser", author: "wcory", bookmark: "feat/stacked-changes", timestamp: "3h ago", empty: false },
-  { changeId: "mwvutsr", description: "Implement landing queue rebase for stacks", author: "wcory", bookmark: "feat/stacked-changes", timestamp: "3h ago", empty: false },
-  { changeId: "nqponml", description: "Add stack indicators to landing request API", author: "wcory", bookmark: "feat/stacked-changes", timestamp: "3h ago", empty: false },
-  { changeId: "pabcdef", description: "Fix SSH key rotation on session expiry", author: "wcory", bookmark: "fix/ssh-auth", timestamp: "5h ago", empty: false },
-  { changeId: "rstuvwx", description: "Update CLAUDE.md with TUI architecture", author: "wcory", bookmark: "main", timestamp: "1d ago", empty: false },
-  { changeId: "qyzabcd", description: "(empty)", author: "wcory", bookmark: "main", timestamp: "1d ago", empty: true },
-  { changeId: "wefghij", description: "Add webhook retry with exponential backoff", author: "smithers", bookmark: "main", timestamp: "2d ago", empty: false },
-  { changeId: "xklmnop", description: "Implement SSE reconnect with backoff", author: "wcory", bookmark: "main", timestamp: "3d ago", empty: false },
-  { changeId: "yqrstuv", description: "CLI: add workflow run command", author: "smithers", bookmark: "main", timestamp: "4d ago", empty: false },
-  { changeId: "zwxyzab", description: "Add organization service with team support", author: "wcory", bookmark: "main", timestamp: "5d ago", empty: false },
-];
+function formatTimeAgo(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  const weeks = Math.floor(days / 7);
+  return `${weeks}w ago`;
+}
 
 export interface ChangeListProps {
   owner: string;
@@ -22,14 +25,21 @@ export interface ChangeListProps {
 }
 
 export function ChangeList({ owner, name, onNavigate }: ChangeListProps) {
-  const items: ListItem[] = MOCK_CHANGES.map((change) => ({
-    key: change.changeId,
-    label: `${change.changeId} ${change.description}`,
-    description: `${change.bookmark} by ${change.author} ${change.timestamp}`,
-    badge: change.empty
-      ? { text: "empty", color: "gray" }
-      : undefined,
-  }));
+  const { changes, loading, error } = useChanges({ owner, repo: name });
+
+  const items: ListItem[] = useMemo(() => {
+    if (!changes) return [];
+    return changes.map((change) => ({
+      key: change.change_id,
+      label: `${change.change_id} ${change.description || "(empty)"}`,
+      description: `by ${change.author_name} ${formatTimeAgo(change.timestamp)}`,
+      badge: change.is_empty
+        ? { text: "empty", color: "gray" }
+        : change.has_conflict
+          ? { text: "conflict", color: "red" }
+          : undefined,
+    }));
+  }, [changes]);
 
   return (
     <Box flexDirection="column" flexGrow={1}>
@@ -40,12 +50,18 @@ export function ChangeList({ owner, name, onNavigate }: ChangeListProps) {
       </Box>
 
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
-        <List
-          items={items}
-          onSelect={(item) => {
-            // Future: navigate to change detail
-          }}
-        />
+        {loading ? (
+          <Spinner label="Loading changes..." />
+        ) : error ? (
+          <Text color="red">Error: {error.message}</Text>
+        ) : (
+          <List
+            items={items}
+            onSelect={(item) => {
+              // Future: navigate to change detail
+            }}
+          />
+        )}
       </Box>
 
       <StatusBar
@@ -54,7 +70,7 @@ export function ChangeList({ owner, name, onNavigate }: ChangeListProps) {
           { key: "Enter", label: "view" },
           { key: "q", label: "back" },
         ]}
-        left={`${MOCK_CHANGES.length} changes`}
+        left={`${changes?.length ?? 0} changes`}
       />
     </Box>
   );

@@ -122,7 +122,7 @@ export class SyncQueue {
       [method, path, bodyJson, localId],
     );
 
-    return rowToItem(rows[0]);
+    return rowToItem(rows[0]!);
   }
 
   /**

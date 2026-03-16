@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Input, Spinner, StatusBar, ScrollView } from "../primitives";
+import { Box, Text, Heading, Input, Spinner, StatusBar, ScrollView, ErrorBox, EmptyState } from "../primitives";
 import { useAgentSession } from "../hooks";
 import type { ChatMessage } from "../hooks/useAgentSession";
+import { theme } from "../utils";
 
 export interface AgentChatProps {
   owner: string;
@@ -14,27 +15,19 @@ export interface AgentChatProps {
 
 function roleColor(role: string): string {
   switch (role) {
-    case "user":
-      return "white";
-    case "assistant":
-      return "cyan";
-    case "system":
-      return "yellow";
-    default:
-      return "gray";
+    case "user": return "white";
+    case "assistant": return theme.info;
+    case "system": return theme.warning;
+    default: return theme.muted;
   }
 }
 
 function roleLabel(role: string): string {
   switch (role) {
-    case "user":
-      return "you";
-    case "assistant":
-      return "agent";
-    case "system":
-      return "system";
-    default:
-      return role;
+    case "user": return "you";
+    case "assistant": return "agent";
+    case "system": return "system";
+    default: return role;
   }
 }
 
@@ -42,10 +35,10 @@ function MessageLine({ message }: { message: ChatMessage }) {
   if (message.type === "tool_call" || message.type === "tool_result") {
     return (
       <Box gap={1}>
-        <Text color="magenta" bold>
+        <Text color={theme.agent} bold>
           {message.type === "tool_call" ? ">" : "<"}
         </Text>
-        <Text color="magenta">{message.toolName || "tool"}</Text>
+        <Text color={theme.agent}>{message.toolName || "tool"}</Text>
         <Text dimColor wrap="truncate">
           {message.content.slice(0, 120)}
         </Text>
@@ -141,9 +134,7 @@ export function AgentChat({ owner, name, sessionId, mode, onNavigate }: AgentCha
     <Box flexDirection="column" flexGrow={1}>
       {/* Header */}
       <Box paddingX={1} gap={2}>
-        <Heading>
-          Agent - {owner}/{name}
-        </Heading>
+        <Heading>Agent Chat</Heading>
         {activeSessionId && (
           <Text dimColor>session: {activeSessionId.slice(0, 8)}</Text>
         )}
@@ -157,23 +148,17 @@ export function AgentChat({ owner, name, sessionId, mode, onNavigate }: AgentCha
         paddingX={1}
         paddingY={1}
         borderStyle={focus === "history" ? "round" : "single"}
-        borderColor={focus === "history" ? "cyan" : "gray"}
+        borderColor={focus === "history" ? theme.borderFocused : theme.border}
       >
         {loading ? (
           <Spinner label="Loading messages..." />
         ) : error ? (
-          <Box flexDirection="column" gap={1}>
-            <Text color="red">Error: {error.message}</Text>
-            <Text dimColor>Press Tab to switch to input and try again.</Text>
-          </Box>
+          <ErrorBox message={error.message} hint="Press Tab to switch to input and try again." />
         ) : messages.length === 0 ? (
-          <Box flexDirection="column" gap={1}>
-            <Text dimColor>No messages yet.</Text>
-            <Text dimColor>
-              Press <Text color="yellow" bold>Tab</Text> to switch to input,
-              then type a message and press <Text color="yellow" bold>Enter</Text> to send.
-            </Text>
-          </Box>
+          <EmptyState
+            message="No messages yet."
+            hint="Press Tab to switch to input, then type a message and press Enter to send."
+          />
         ) : (
           <ScrollView
             maxVisible={16}
@@ -186,7 +171,7 @@ export function AgentChat({ owner, name, sessionId, mode, onNavigate }: AgentCha
 
         {streaming && (
           <Box paddingTop={1}>
-            <Spinner label="thinking..." color="cyan" />
+            <Spinner label="Agent is thinking..." color={theme.agent} />
           </Box>
         )}
       </Box>
@@ -196,7 +181,7 @@ export function AgentChat({ owner, name, sessionId, mode, onNavigate }: AgentCha
         paddingX={1}
         paddingY={1}
         borderStyle={focus === "input" ? "round" : "single"}
-        borderColor={focus === "input" ? "cyan" : "gray"}
+        borderColor={focus === "input" ? theme.borderFocused : theme.border}
       >
         <Input
           value={inputValue}

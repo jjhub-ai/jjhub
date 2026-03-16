@@ -1,7 +1,8 @@
 import React from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Muted, Spinner, StatusBar } from "../primitives";
+import { Box, Text, Heading, Muted, Spinner, StatusBar, ErrorBox } from "../primitives";
 import { useSyncStatus, type SyncState } from "../hooks";
+import { statusColor, theme } from "../utils";
 
 function formatLastSync(lastSync: string | null): string {
   if (!lastSync) return "never";
@@ -19,25 +20,11 @@ function formatLastSync(lastSync: string | null): string {
   return `${days}d ago`;
 }
 
-function statusColor(status: SyncState): string {
+function syncStatusDot(status: SyncState): string {
   switch (status) {
-    case "online":
-      return "green";
-    case "syncing":
-      return "yellow";
-    case "offline":
-      return "red";
-  }
-}
-
-function statusDot(status: SyncState): string {
-  switch (status) {
-    case "online":
-      return "●";
-    case "syncing":
-      return "◐";
-    case "offline":
-      return "○";
+    case "online": return "\u25CF";
+    case "syncing": return "\u25D0";
+    case "offline": return "\u25CB";
   }
 }
 
@@ -73,6 +60,8 @@ export function SyncStatus({ onNavigate }: SyncStatusProps) {
     );
   }
 
+  const syncColor = statusColor(data.status);
+
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1}>
@@ -81,7 +70,7 @@ export function SyncStatus({ onNavigate }: SyncStatusProps) {
 
       {error && (
         <Box paddingX={1}>
-          <Text color="red">Error: {error.message}</Text>
+          <ErrorBox message={error.message} hint="Sync status may be unavailable." />
         </Box>
       )}
 
@@ -90,18 +79,18 @@ export function SyncStatus({ onNavigate }: SyncStatusProps) {
         <Box
           flexDirection="column"
           borderStyle="round"
-          borderColor={statusColor(data.status)}
+          borderColor={syncColor}
           padding={1}
         >
           <Box gap={1}>
-            <Text color={statusColor(data.status)} bold>
-              {statusDot(data.status)}
+            <Text color={syncColor} bold>
+              {syncStatusDot(data.status)}
             </Text>
             <Text bold>Connection Status</Text>
           </Box>
           <Box gap={1} marginTop={1}>
             <Text dimColor>Status:</Text>
-            <Text bold color={statusColor(data.status)}>
+            <Text bold color={syncColor}>
               {data.status === "syncing" ? "Syncing..." : data.status.toUpperCase()}
             </Text>
           </Box>
@@ -122,7 +111,7 @@ export function SyncStatus({ onNavigate }: SyncStatusProps) {
           <Box
             flexDirection="column"
             borderStyle="single"
-            borderColor={data.pending > 0 ? "yellow" : "gray"}
+            borderColor={data.pending > 0 ? theme.warning : theme.border}
             padding={1}
             flexGrow={1}
           >
@@ -130,7 +119,7 @@ export function SyncStatus({ onNavigate }: SyncStatusProps) {
             <Box gap={1} marginTop={1}>
               <Text
                 bold
-                color={data.pending > 0 ? "yellow" : "green"}
+                color={data.pending > 0 ? theme.warning : theme.success}
               >
                 {data.pending}
               </Text>
@@ -141,7 +130,7 @@ export function SyncStatus({ onNavigate }: SyncStatusProps) {
           <Box
             flexDirection="column"
             borderStyle="single"
-            borderColor={data.conflicts > 0 ? "red" : "gray"}
+            borderColor={data.conflicts > 0 ? theme.error : theme.border}
             padding={1}
             flexGrow={1}
           >
@@ -149,7 +138,7 @@ export function SyncStatus({ onNavigate }: SyncStatusProps) {
             <Box gap={1} marginTop={1}>
               <Text
                 bold
-                color={data.conflicts > 0 ? "red" : "green"}
+                color={data.conflicts > 0 ? theme.error : theme.success}
               >
                 {data.conflicts}
               </Text>
@@ -158,7 +147,7 @@ export function SyncStatus({ onNavigate }: SyncStatusProps) {
             {data.conflicts > 0 && (
               <Box marginTop={1}>
                 <Text dimColor>Press </Text>
-                <Text color="yellow" bold>c</Text>
+                <Text color={theme.warning} bold>c</Text>
                 <Text dimColor> to view conflicts</Text>
               </Box>
             )}
@@ -167,6 +156,7 @@ export function SyncStatus({ onNavigate }: SyncStatusProps) {
       </Box>
 
       <StatusBar
+        connectionStatus={data.status}
         bindings={[
           { key: "s", label: "sync now" },
           { key: "c", label: "view conflicts" },

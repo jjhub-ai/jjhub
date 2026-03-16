@@ -1,67 +1,16 @@
 import React, { useState } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, Label, Muted, ScrollView, Spinner, StatusBar } from "../primitives";
+import { Box, Text, Heading, Label, Muted, ScrollView, Spinner, StatusBar, ErrorBox } from "../primitives";
 import { useWorkspaceDetail, useWorkspaces, type WorkspaceService } from "../hooks";
-
-function statusColor(status: string): string {
-  switch (status) {
-    case "running":
-      return "green";
-    case "suspended":
-    case "creating":
-      return "yellow";
-    case "failed":
-    case "deleting":
-      return "red";
-    default:
-      return "gray";
-  }
-}
-
-function serviceStatusColor(status: string): string {
-  switch (status) {
-    case "running":
-      return "green";
-    case "stopped":
-      return "gray";
-    case "error":
-      return "red";
-    default:
-      return "gray";
-  }
-}
+import { formatTimeAgo, formatTimestamp, statusColor, theme } from "../utils";
 
 function serviceStatusDot(status: string): string {
   switch (status) {
-    case "running":
-      return "\u25CF";
-    case "stopped":
-      return "\u25CB";
-    case "error":
-      return "\u2718";
-    default:
-      return "\u25CB";
+    case "running": return "\u25CF";
+    case "stopped": return "\u25CB";
+    case "error": return "\u2718";
+    default: return "\u25CB";
   }
-}
-
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w ago`;
-}
-
-function formatTimestamp(dateString: string): string {
-  return new Date(dateString).toLocaleString();
 }
 
 export interface WorkspaceDetailProps {
@@ -119,7 +68,7 @@ export function WorkspaceDetail({ owner, name, workspaceId, onNavigate }: Worksp
   if (loading) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
-        <Spinner label="Loading workspace..." />
+        <Spinner label="Loading workspace details..." />
       </Box>
     );
   }
@@ -127,18 +76,22 @@ export function WorkspaceDetail({ owner, name, workspaceId, onNavigate }: Worksp
   if (error || !workspace) {
     return (
       <Box flexDirection="column" flexGrow={1} paddingX={2} paddingY={1}>
-        <Text color="red">
-          {error ? `Error: ${error.message}` : "Workspace not found"}
-        </Text>
+        <ErrorBox
+          title="Workspace Error"
+          message={error ? error.message : "Workspace not found"}
+          hint="Press q to go back."
+        />
       </Box>
     );
   }
+
+  const wsColor = statusColor(workspace.status);
 
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1} gap={1}>
         <Heading>{workspace.name}</Heading>
-        <Text color={statusColor(workspace.status)} bold>
+        <Text color={wsColor} bold>
           [{workspace.status}]
         </Text>
       </Box>
@@ -149,13 +102,13 @@ export function WorkspaceDetail({ owner, name, workspaceId, onNavigate }: Worksp
           <Box
             flexDirection="column"
             borderStyle="round"
-            borderColor={statusColor(workspace.status)}
+            borderColor={wsColor}
             padding={1}
           >
             <Text bold>Workspace Info</Text>
             <Box flexDirection="row" gap={4} marginTop={1}>
-              <Label label="Status" value={workspace.status} valueColor={statusColor(workspace.status)} />
-              <Label label="Bookmark" value={workspace.bookmark} valueColor="cyan" />
+              <Label label="Status" value={workspace.status} valueColor={wsColor} />
+              <Label label="Bookmark" value={workspace.bookmark} valueColor={theme.info} />
             </Box>
             <Box flexDirection="row" gap={4}>
               <Label label="Created" value={formatTimestamp(workspace.created_at)} />
@@ -164,7 +117,7 @@ export function WorkspaceDetail({ owner, name, workspaceId, onNavigate }: Worksp
             {workspace.ssh_url && (
               <Box gap={1} marginTop={1}>
                 <Text dimColor>SSH:</Text>
-                <Text color="cyan">{workspace.ssh_url}</Text>
+                <Text color={theme.info}>{workspace.ssh_url}</Text>
               </Box>
             )}
           </Box>
@@ -172,7 +125,7 @@ export function WorkspaceDetail({ owner, name, workspaceId, onNavigate }: Worksp
 
         {actionError && (
           <Box key="action-error" paddingX={2}>
-            <Text color="red">Error: {actionError}</Text>
+            <ErrorBox message={actionError} />
           </Box>
         )}
 
@@ -193,11 +146,11 @@ export function WorkspaceDetail({ owner, name, workspaceId, onNavigate }: Worksp
               paddingX={3}
               gap={1}
             >
-              <Text color={serviceStatusColor(svc.status)}>
+              <Text color={statusColor(svc.status)}>
                 {serviceStatusDot(svc.status)}
               </Text>
               <Text bold>{svc.name}</Text>
-              <Text color={serviceStatusColor(svc.status)}>
+              <Text color={statusColor(svc.status)}>
                 {svc.status}
               </Text>
               {svc.port && <Muted>:{svc.port}</Muted>}

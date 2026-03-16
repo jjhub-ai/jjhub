@@ -1,38 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useInput } from "ink";
-import { Box, Text, Heading, List, Spinner, StatusBar, type ListItem } from "../primitives";
+import { Box, Text, Heading, List, Spinner, StatusBar, ErrorBox, EmptyState, type ListItem } from "../primitives";
 import { useWorkspaces } from "../hooks";
-
-function statusColor(status: string): string {
-  switch (status) {
-    case "running":
-      return "green";
-    case "suspended":
-    case "creating":
-      return "yellow";
-    case "failed":
-    case "deleting":
-      return "red";
-    default:
-      return "gray";
-  }
-}
-
-function formatTimeAgo(dateString: string): string {
-  const date = new Date(dateString);
-  const now = new Date();
-  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-
-  if (seconds < 60) return "just now";
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  return `${weeks}w ago`;
-}
+import { formatTimeAgo, statusColor, theme } from "../utils";
 
 export interface WorkspaceListProps {
   owner: string;
@@ -107,29 +77,25 @@ export function WorkspaceList({ owner, name, onNavigate }: WorkspaceListProps) {
   return (
     <Box flexDirection="column" flexGrow={1}>
       <Box paddingX={1} gap={2}>
-        <Heading>
-          Workspaces - {owner}/{name}
-        </Heading>
+        <Heading>Workspaces</Heading>
       </Box>
 
       <Box flexDirection="column" flexGrow={1} paddingX={1}>
         {actionError && (
           <Box paddingBottom={1}>
-            <Text color="red">Error: {actionError}</Text>
+            <ErrorBox message={actionError} />
           </Box>
         )}
 
         {loading ? (
           <Spinner label="Loading workspaces..." />
         ) : error ? (
-          <Text color="red">Error: {error.message}</Text>
+          <ErrorBox message={error.message} hint="Press q to go back." />
         ) : items.length === 0 ? (
-          <Box flexDirection="column" paddingY={1}>
-            <Text dimColor>No workspaces found.</Text>
-            <Text dimColor>
-              Press <Text color="yellow" bold>c</Text> to create one.
-            </Text>
-          </Box>
+          <EmptyState
+            message="No workspaces found."
+            hint="Press 'c' to create one."
+          />
         ) : (
           <List
             items={items}

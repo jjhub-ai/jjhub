@@ -1,3 +1,4 @@
+import { createHash, randomUUID } from "crypto";
 import type { Sql } from "postgres";
 import {
   APIError,
@@ -7,6 +8,9 @@ import {
   badRequest,
 } from "../lib/errors";
 import type { ContainerSandboxClient } from "./container-sandbox";
+import {
+  createSandboxAccessToken as dbCreateSandboxAccessToken,
+} from "../db/sandbox_access_tokens_sql";
 import {
   createWorkspace as dbCreateWorkspace,
   getWorkspace as dbGetWorkspace,

@@ -14,7 +14,10 @@
     "sqlc": "sqlc generate",
     "check": "bun run --filter '*' check",
     "lint": "echo 'no linter configured yet'",
-    "clean": "rm -rf apps/*/dist packages/*/dist"
+    "build:all": "bun run scripts/build-all.ts",
+    "build:desktop": "bun run scripts/build-desktop.ts",
+    "release": "bun run scripts/build-all.ts && bun run scripts/build-desktop.ts",
+    "clean": "rm -rf apps/*/dist packages/*/dist dist"
   },
   "devDependencies": {
     "@types/bun": "latest",

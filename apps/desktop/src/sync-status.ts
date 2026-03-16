@@ -2,8 +2,8 @@
  * Sync status management for the JJHub desktop app.
  *
  * Periodically checks whether the remote JJHub instance is reachable,
- * tracks pending sync queue items, and exposes the current state for
- * the system tray menu.
+ * tracks pending sync queue items, recent repos, and notification counts.
+ * Exposes the current state for the system tray menu.
  */
 
 export enum SyncStatus {
@@ -13,14 +13,23 @@ export enum SyncStatus {
   Error = "error",
 }
 
-interface SyncState {
+export interface RecentRepo {
+  /** Full name, e.g. "owner/repo" */
+  fullName: string;
+  /** Timestamp of last access */
+  lastAccessed: Date;
+}
+
+export interface SyncState {
   status: SyncStatus;
   pendingCount: number;
+  unreadNotifications: number;
+  recentRepos: RecentRepo[];
   lastChecked: Date | null;
   lastError: string | null;
 }
 
-type SyncStatusCallback = (status: SyncStatus, pendingCount: number) => void;
+export type SyncStatusCallback = (state: Readonly<SyncState>) => void;
 
 // ---------------------------------------------------------------------------
 // Module state
@@ -29,18 +38,26 @@ type SyncStatusCallback = (status: SyncStatus, pendingCount: number) => void;
 const state: SyncState = {
   status: SyncStatus.Offline,
   pendingCount: 0,
+  unreadNotifications: 0,
+  recentRepos: [],
   lastChecked: null,
   lastError: null,
 };
 
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let callback: SyncStatusCallback | null = null;
+let daemonBaseUrl = "http://localhost:4000";
 
 const POLL_INTERVAL_MS = 10_000; // 10 seconds
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
+
+/** Return the full current sync state (read-only snapshot). */
+export function currentState(): Readonly<SyncState> {
+  return { ...state, recentRepos: [...state.recentRepos] };
+}
 
 /** Return the current sync status. */
 export function currentStatus(): SyncStatus {
@@ -50,6 +67,11 @@ export function currentStatus(): SyncStatus {
 /** Return the number of items waiting to sync. */
 export function pendingCount(): number {
   return state.pendingCount;
+}
+
+/** Return the number of unread notifications. */
+export function unreadNotificationCount(): number {
+  return state.unreadNotifications;
 }
 
 /** Human-readable label for the tray menu. */
@@ -73,6 +95,7 @@ export function startSyncMonitor(
   daemonUrl: string,
   onStatusChange: SyncStatusCallback,
 ): void {
+  daemonBaseUrl = daemonUrl;
   callback = onStatusChange;
 
   // Run an initial check immediately
@@ -100,7 +123,7 @@ export function forceSyncNow(): void {
 
   // The actual sync is handled by the daemon — we just hit the endpoint.
   // After a short delay, the next poll cycle will pick up the real status.
-  fetch("http://localhost:4000/api/v1/sync", { method: "POST" })
+  fetch(`${daemonBaseUrl}/api/v1/sync`, { method: "POST" })
     .then(() => {
       state.status = SyncStatus.Online;
       notify();
@@ -130,11 +153,23 @@ async function checkSync(daemonUrl: string): Promise<void> {
     const body = (await res.json()) as {
       status?: string;
       pendingSyncCount?: number;
+      unreadNotifications?: number;
+      recentRepos?: Array<{ fullName: string; lastAccessed: string }>;
     };
 
     const pending = body.pendingSyncCount ?? 0;
+    const unread = body.unreadNotifications ?? state.unreadNotifications;
     const newStatus = pending > 0 ? SyncStatus.Syncing : SyncStatus.Online;
 
+    // Update recent repos if provided by the health endpoint
+    if (body.recentRepos) {
+      state.recentRepos = body.recentRepos.map((r) => ({
+        fullName: r.fullName,
+        lastAccessed: new Date(r.lastAccessed),
+      }));
+    }
+
+    state.unreadNotifications = unread;
     updateState(newStatus, pending, null);
   } catch (err) {
     updateState(SyncStatus.Offline, 0, String(err));
@@ -147,7 +182,8 @@ function updateState(
   error: string | null,
 ): void {
   const changed =
-    state.status !== status || state.pendingCount !== pending;
+    state.status !== status ||
+    state.pendingCount !== pending;
 
   state.status = status;
   state.pendingCount = pending;
@@ -161,6 +197,6 @@ function updateState(
 
 function notify(): void {
   if (callback) {
-    callback(state.status, state.pendingCount);
+    callback(state);
   }
 }

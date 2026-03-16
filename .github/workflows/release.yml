@@ -1,0 +1,224 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build-binaries:
+    name: Build Platform Binaries
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build all platform binaries
+        run: bun run scripts/build-all.ts
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-binaries
+          path: dist/archives/*
+          retention-days: 1
+
+  build-docker:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-desktop-mac:
+    name: Build Desktop (macOS)
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build macOS desktop app
+        run: bun run scripts/build-desktop.ts --platform=mac
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-mac
+          path: |
+            dist/desktop/mac/*.dmg
+          retention-days: 1
+
+  build-desktop-windows:
+    name: Build Desktop (Windows)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Windows desktop app
+        run: bun run scripts/build-desktop.ts --platform=win
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-windows
+          path: |
+            dist/desktop/win/*.exe
+          retention-days: 1
+
+  build-desktop-linux:
+    name: Build Desktop (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build Linux desktop app
+        run: bun run scripts/build-desktop.ts --platform=linux
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-linux
+          path: |
+            dist/desktop/linux/*.AppImage
+          retention-days: 1
+
+  publish-npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    needs: [build-binaries]
+    if: ${{ !contains(github.ref_name, '-') }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Node.js (for npm publish)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Publish @jjhub/sdk
+        working-directory: packages/sdk
+        run: npm publish --access public || true
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Publish @jjhub/cli
+        working-directory: apps/cli
+        run: npm publish --access public || true
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+  create-release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs:
+      - build-binaries
+      - build-docker
+      - build-desktop-mac
+      - build-desktop-windows
+      - build-desktop-linux
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: List artifacts
+        run: find release-artifacts -type f | sort
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            release-artifacts/platform-binaries/*
+            release-artifacts/desktop-mac/*
+            release-artifacts/desktop-windows/*
+            release-artifacts/desktop-linux/*

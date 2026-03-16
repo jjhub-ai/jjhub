@@ -11,10 +11,12 @@
     "@electric-sql/pglite": "latest",
     "better-result": "latest",
     "hono": "latest",
+    "js-yaml": "^4.1.1",
     "postgres": "latest",
     "ssh2": "latest"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/ssh2": "latest"
   }
 }

@@ -13,9 +13,8 @@ import { Result } from "better-result";
 import type { Sql } from "postgres";
 import * as yaml from "js-yaml";
 
-import { internal } from "../lib/errors";
-import type { RepoHostService, ChangeFile, FileContent } from "./repohost";
-import type { SecretCodec, NoopSecretCodec } from "./webhook";
+import type { RepoHostService } from "./repohost";
+import type { SecretCodec } from "./webhook";
 
 import {
   getRepoByID,

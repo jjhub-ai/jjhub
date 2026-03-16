@@ -552,7 +552,8 @@ export function parseMentions(text: string): string[] {
   // Reset regex state
   MENTION_REGEX.lastIndex = 0;
   while ((match = MENTION_REGEX.exec(text)) !== null) {
-    const username = match[1];
+    const username = match[1] as string | undefined;
+    if (!username) continue;
     const lower = username.toLowerCase();
     if (!seen.has(lower)) {
       seen.add(lower);

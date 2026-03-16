@@ -90,6 +90,22 @@ export { ReleaseService } from "./services/release";
 export { OAuth2Service } from "./services/oauth2";
 export { LFSService } from "./services/lfs";
 export {
+  ConfigSyncService,
+  createConfigSyncService,
+  parseConfigFiles,
+} from "./services/configsync";
+export type {
+  SyncInput as ConfigSyncInput,
+  SyncResult as ConfigSyncResult,
+  ConfigChange,
+  SyncWarning as ConfigSyncWarning,
+  ParsedConfig,
+  ConfigFile,
+  ProtectedBookmarkRule,
+  LabelDefinition as ConfigLabelDefinition,
+  WebhookDefinition as ConfigWebhookDefinition,
+} from "./services/configsync";
+export {
   RepoHostService,
   getRepoHostService,
   createRepoHostService,

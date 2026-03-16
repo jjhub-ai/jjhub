@@ -54,6 +54,26 @@ function service() {
   return getServices().webhook;
 }
 
+/**
+ * Map a webhook row from camelCase (sqlc) to snake_case (API response).
+ * The sqlc-generated types use camelCase, but the API should return snake_case.
+ */
+function mapWebhookResponse(row: any): any {
+  if (!row) return row;
+  if (Array.isArray(row)) return row.map(mapWebhookResponse);
+  return {
+    id: row.id,
+    repository_id: row.repositoryId ?? row.repository_id,
+    url: row.url,
+    secret: row.secret,
+    events: row.events,
+    is_active: row.isActive ?? row.is_active,
+    last_delivery_at: row.lastDeliveryAt ?? row.last_delivery_at ?? null,
+    created_at: row.createdAt instanceof Date ? row.createdAt.toISOString() : (row.created_at ?? row.createdAt),
+    updated_at: row.updatedAt instanceof Date ? row.updatedAt.toISOString() : (row.updated_at ?? row.updatedAt),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Routes
 // ---------------------------------------------------------------------------

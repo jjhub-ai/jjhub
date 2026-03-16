@@ -202,6 +202,23 @@ export type {
   AutoPushEvent,
 } from "./services/auto-push";
 
+// Issue Pipeline (automated Research → Plan → Implement → Review → Land)
+export {
+  IssuePipelineService,
+  createIssuePipelineTriggerHandler,
+  PIPELINE_STEPS,
+  DEFAULT_TRIGGER_LABEL,
+} from "./services/issue-pipeline";
+export type {
+  PipelineStep,
+  PipelineStepStatus,
+  PipelineStepState,
+  PipelineStatus,
+  IssuePipelineConfig,
+  IssuePipelineEvent,
+  IssuePipelineTriggerHandler,
+} from "./services/issue-pipeline";
+
 // Feature flags
 export {
   FeatureFlagService,
